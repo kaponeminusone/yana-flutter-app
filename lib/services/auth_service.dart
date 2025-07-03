@@ -1,79 +1,95 @@
-// lib/services/auth_service.dart
+// lib/services/auth_service.dart (Asegúrate de que este archivo exista)
 import 'package:dio/dio.dart';
-import 'package:yana/models/propietario_model.dart';
+import 'package:yana/repository/auth_repository.dart';
+import '../models/propietario_model.dart'; // Importa tu modelo de propietario
 
 class AuthService {
   final Dio _dio;
-  // Asegúrate de que esta sea la URL base de tu API
-  final String _baseUrl = 'http://10.0.2.2:5000/api/auth'; // Para emulador Android
-  // final String _baseUrl = 'http://localhost:5000/api/auth'; // Para iOS Simulator o Web
 
-  AuthService([Dio? dio]) : _dio = dio ?? Dio();
+  AuthService(this._dio); // El constructor ahora recibe un Dio
 
-  // NUEVO: Método para hacer un "ping" a la API
-  Future<bool> pingApi() async {
+  // Para login, el Dio no debe tener un token de auth si el token aún no existe
+  Future<AuthResponse> login(String correo, String password) async {
     try {
-      // Intenta hacer una petición GET muy ligera, por ejemplo, a la URL base
-      // Si tu API tiene un endpoint de /health o /status, úsalo en su lugar.
-      // Por ahora, solo intentaremos la URL base.
-      await _dio.get(_baseUrl, options: Options(
-        sendTimeout: const Duration(seconds: 5), // Límite de tiempo para el envío
-        receiveTimeout: const Duration(seconds: 5), // Límite de tiempo para la recepción
-      ));
-      return true; // La API es alcanzable
+      final response = await _dio.post('/api/auth/login', data: {
+        'correo': correo,
+        'password': password,
+      });
+      final accessToken = response.data['accessToken'] as String;
+      final propietario = PropietarioModel.fromJson(response.data['propietario'] as Map<String, dynamic>);
+      return AuthResponse(accessToken: accessToken, propietario: propietario);
     } on DioException catch (e) {
-      // Captura errores específicos de Dio, como problemas de conexión, timeouts, etc.
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.sendTimeout) {
-        print('Error de conexión a la API: ${e.message}');
-        return false; // No se pudo conectar a la API
+      if (e.response != null) {
+        throw e.response?.data['message'] ?? 'Error de servidor al iniciar sesión.';
+      } else {
+        throw 'Error de conexión: ${e.message}';
       }
-      // Otros tipos de errores Dio (ej. 404, 500) aún significan que se llegó a la API
-      // pero la respuesta no fue la esperada para este ping.
-      print('Otro tipo de error Dio al hacer ping a la API: ${e.message}');
-      return true; // Consideramos que la API es alcanzable, pero el endpoint de ping falló
     } catch (e) {
-      // Captura cualquier otro error inesperado
-      print('Error inesperado al hacer ping a la API: $e');
-      return false; // Error desconocido, asumimos no alcanzable
+      throw 'Error inesperado al iniciar sesión: $e';
     }
   }
 
-  Future<RegisterResponse> register({
+  Future<void> register({
     required String nombre,
     required String identificacion,
     required String correo,
     required String password,
     required String celular,
   }) async {
-    final resp = await _dio.post(
-      '$_baseUrl/register',
-      options: Options(contentType: Headers.jsonContentType),
-      data: {
+    try {
+      await _dio.post('/api/auth/register', data: {
         'nombre': nombre,
         'identificacion': identificacion,
         'correo': correo,
         'password': password,
         'celular': celular,
-      },
-    );
-    return RegisterResponse.fromJson(resp.data as Map<String, dynamic>);
+      });
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw e.response?.data['message'] ?? 'Error de servidor al registrarse.';
+      } else {
+        throw 'Error de conexión: ${e.message}';
+      }
+    } catch (e) {
+      throw 'Error inesperado al registrarse: $e';
+    }
   }
 
-  Future<LoginResponse> login({
-    required String correo,
-    required String password,
-  }) async {
-    final resp = await _dio.post(
-      '$_baseUrl/login',
-      options: Options(contentType: Headers.jsonContentType),
-      data: {
-        'correo': correo,
-        'password': password,
-      },
-    );
-    return LoginResponse.fromJson(resp.data as Map<String, dynamic>);
+  Future<bool> checkApiStatus() async {
+    try {
+      await _dio.get('/api/status'); // Un endpoint simple para verificar conectividad
+      return true;
+    } on DioException {
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ¡NUEVO MÉTODO! Para validar el token con el backend
+  // Asume que este _dio tiene el interceptor para añadir el token automáticamente.
+  // Si no, deberías pasarlo manualmente en los headers para este método.
+  Future<PropietarioModel> validateToken(String token) async {
+    try {
+      // Necesitas un Dio configurado con el token para esta llamada
+      // O puedes pasarlo manualmente aquí:
+      final response = await _dio.get(
+        '/api/auth/validate', // o '/api/auth/me' o similar
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return PropietarioModel.fromJson(response.data['propietario'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        // Token inválido o expirado
+        throw 'Token inválido o expirado. Por favor, inicie sesión de nuevo.';
+      }
+      if (e.response != null) {
+        throw e.response?.data['message'] ?? 'Error al validar el token.';
+      } else {
+        throw 'Error de conexión al validar token: ${e.message}';
+      }
+    } catch (e) {
+      throw 'Error inesperado al validar token: $e';
+    }
   }
 }

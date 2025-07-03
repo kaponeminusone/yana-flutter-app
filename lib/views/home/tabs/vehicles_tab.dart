@@ -1,5 +1,8 @@
 // lib/views/home/tabs/vehicles_tab.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // ¡Importar Provider!
+import 'package:yana/models/vehiculo_model.dart'; // ¡Importar tu modelo de vehículo!
+import 'package:yana/providers/vehiculo_provider.dart'; // ¡Importar tu VehiculoProvider!
 import 'package:yana/views/documents/docs_view.dart';
 
 class VehiclesTab extends StatefulWidget {
@@ -10,31 +13,111 @@ class VehiclesTab extends StatefulWidget {
 }
 
 class _VehiclesTabState extends State<VehiclesTab> {
+  // Ahora el selectedIndex se refiere al índice en la lista de vehículos reales
   int selectedIndex = 0;
 
-  // Datos de ejemplo
-  final vehicles = List.generate(
-    20,
-    (i) => {
-      'brand': 'Vehículo #${i + 1}',
-      'plate': 'XYZ-${200 + i}', // Agregamos una placa para el ejemplo
-      'isCar': i % 2 == 0, // Indicador de si es carro o moto
-      'docs': [
-        {'name': 'SOAT', 'status': Colors.green},
-        {'name': 'Propiedad', 'status': Colors.yellow},
-        {'name': 'Revisión1', 'status': Colors.red},
-        {'name': 'Revisión2', 'status': Colors.red},
-        {'name': 'Revisión3', 'status': Colors.red},
-        {'name': 'Revisión4', 'status': Colors.red},
-        {'name': 'Revisión5', 'status': Colors.red},
-        {'name': 'Revisión6', 'status': Colors.red},
-      ],
-    },
-  );
+  @override
+  void initState() {
+    super.initState();
+    // Cuando el widget se inicializa, solicita al provider que cargue los vehículos
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<VehiculoProvider>(context, listen: false).fetchVehiculos();
+    });
+  }
+
+  // Función auxiliar para generar datos de documentos (simulados) para cada vehículo.
+  // Esto es necesario porque tu `VehiculoModel` del backend no incluye esta información.
+  List<Map<String, dynamic>> _generateFakeDocs() {
+    return [
+      {'name': 'SOAT', 'status': Colors.green},
+      {'name': 'Propiedad', 'status': Colors.yellow},
+      {'name': 'Revisión1', 'status': Colors.red},
+      {'name': 'Revisión2', 'status': Colors.red},
+      {'name': 'Revisión3', 'status': Colors.red},
+      {'name': 'Revisión4', 'status': Colors.red},
+      {'name': 'Revisión5', 'status': Colors.red},
+      {'name': 'Revisión6', 'status': Colors.red},
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    final featured = vehicles[selectedIndex];
+    // Escucha los cambios en VehiculoProvider
+    final vehiculoProvider = context.watch<VehiculoProvider>();
+
+    if (vehiculoProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (vehiculoProvider.errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, color: Colors.red, size: 50),
+            const SizedBox(height: 10),
+            Text(
+              'Error: ${vehiculoProvider.errorMessage}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                // Intenta cargar de nuevo los vehículos
+                vehiculoProvider.fetchVehiculos();
+                vehiculoProvider.clearErrorMessage(); // Limpia el mensaje de error
+              },
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final List<VehiculoModel> vehicles = vehiculoProvider.vehiculos;
+
+    if (vehicles.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.directions_car_outlined, size: 80, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'No tienes vehículos registrados.',
+              style: TextStyle(fontSize: 18, color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Usa el botón "+" para agregar uno.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Asegura que selectedIndex sea válido si la lista de vehículos cambia.
+    if (selectedIndex >= vehicles.length) {
+      selectedIndex = 0;
+    }
+    final VehiculoModel featuredVehicle = vehicles[selectedIndex];
+
+    // Combinamos el modelo de vehículo real con los datos de documentos simulados
+    final Map<String, dynamic> featuredDataForCard = {
+      'id': featuredVehicle.id,
+      'placa': featuredVehicle.placa,
+      'marca': featuredVehicle.marca,
+      'modelo': featuredVehicle.modelo,
+      'year': featuredVehicle.year,
+      'color': featuredVehicle.color,
+      'propietarioId': featuredVehicle.propietarioId,
+      // Los documentos son simulados, ya que no están en VehiculoModel de tu backend
+      'docs': _generateFakeDocs(),
+      'isCar': featuredVehicle.modelo.toLowerCase().contains('auto') || featuredVehicle.modelo.toLowerCase().contains('carro'), // Intenta deducir si es carro/moto
+    };
+
 
     return CustomScrollView(
       slivers: [
@@ -58,20 +141,22 @@ class _VehiclesTabState extends State<VehiclesTab> {
           delegate: _DocsHeaderDelegate(
             minHeight: 141,
             maxHeight: 141,
-            child: _DocsCard(data: featured),
+            // Pasa el Map combinado para el _DocsCard
+            child: _DocsCard(data: featuredDataForCard),
           ),
         ),
 
         // Lista de vehículos con el nuevo diseño
-        SliverPadding( // Agregamos un padding al SliverList para que no se pegue a los bordes
+        SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final v = vehicles[index];
                 final isSelected = index == selectedIndex;
-                final icon = v['isCar'] == true ? Icons.directions_car : Icons.two_wheeler; // Ícono dinámico
-                
+                // Ajusta el ícono basado en el modelo o un nuevo campo en VehiculoModel
+                final icon = v.modelo.toLowerCase().contains('moto') ? Icons.two_wheeler : Icons.directions_car;
+
                 return Column(
                   children: [
                     InkWell(
@@ -86,9 +171,9 @@ class _VehiclesTabState extends State<VehiclesTab> {
                           children: [
                             // Ícono de vehículo (carro o moto)
                             Icon(icon, size: 32, color: Colors.black54),
-                            
+
                             const SizedBox(width: 24), // Espacio entre el ícono y el divisor
-                            
+
                             // Divisor vertical
                             const SizedBox(
                               height: 40, // Altura fija para el divisor
@@ -97,16 +182,17 @@ class _VehiclesTabState extends State<VehiclesTab> {
                                 color: Colors.grey,
                               ),
                             ),
-                            
+
                             const SizedBox(width: 16),
-                            
+
                             // Información del vehículo
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    v['brand'] as String,
+                                    // Muestra marca y modelo
+                                    '${v.marca} ${v.modelo}',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -114,7 +200,7 @@ class _VehiclesTabState extends State<VehiclesTab> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Placa: ${v['plate']}',
+                                    'Placa: ${v.placa}',
                                     style: const TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey,
@@ -123,7 +209,7 @@ class _VehiclesTabState extends State<VehiclesTab> {
                                 ],
                               ),
                             ),
-                            
+
                             // Indicador de selección
                             if (isSelected)
                               const Padding(
@@ -147,7 +233,7 @@ class _VehiclesTabState extends State<VehiclesTab> {
   }
 }
 
-// Delegate para SliverPersistentHeader
+// Delegate para SliverPersistentHeader (SIN CAMBIOS)
 class _DocsHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double minHeight;
   final double maxHeight;
@@ -174,7 +260,7 @@ class _DocsHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-// Widget para cada documento
+// Widget para cada documento (SIN CAMBIOS)
 class _DocTile extends StatelessWidget {
   final String name;
   final Color dotColor;
@@ -213,15 +299,16 @@ class _DocTile extends StatelessWidget {
   }
 }
 
-// ... (resto del código de VehiclesTab)
-
-// Card de documentos y marca con bordes inferiores redondeados
+// Card de documentos y marca con bordes inferiores redondeados (AJUSTADO PARA RECIBIR Map<String, dynamic>)
 class _DocsCard extends StatelessWidget {
+  // Ahora data puede venir de un VehiculoModel convertido a Map,
+  // o directamente de un Map si así lo decides manejar.
   final Map<String, dynamic> data;
   const _DocsCard({Key? key, required this.data}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Aseguramos que 'docs' sea una lista, aunque sean simulados
     final docs = data['docs'] as List;
 
     return ClipRRect(
@@ -233,10 +320,9 @@ class _DocsCard extends StatelessWidget {
         elevation: 0,
         color: Colors.red.shade50,
         child: Padding(
-          // Reduje el padding vertical para tener más espacio
           padding: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 10.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Esto es importante. Usa el espacio que necesita.
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -244,16 +330,16 @@ class _DocsCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Usa Expanded para que el texto no genere overflow
                   Expanded(
                     child: Text(
-                      data['brand'] as String,
+                      // Muestra la marca y modelo del vehículo real
+                      '${data['marca']} ${data['modelo']}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
-                      overflow: TextOverflow.ellipsis, // Evita overflow si el texto es muy largo
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   // El nuevo botón de flecha
@@ -262,7 +348,8 @@ class _DocsCard extends StatelessWidget {
                     iconSize: 20,
                     color: Colors.black54,
                     onPressed: () {
-                      // Navega a la nueva vista de documentos
+                      // Navega a la nueva vista de documentos, pasando el Map completo.
+                      // En DocsView, tendrías que adaptar para leer los datos del Map.
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (context) => DocsView(vehicleData: data),
@@ -275,7 +362,7 @@ class _DocsCard extends StatelessWidget {
               const SizedBox(height: 8),
               // ListView horizontal para los documentos
               SizedBox(
-                height: 65, // Aumenté ligeramente la altura para evitar overflows
+                height: 65,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: docs.length,

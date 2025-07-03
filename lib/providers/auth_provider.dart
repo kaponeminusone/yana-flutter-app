@@ -1,11 +1,13 @@
 // lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'package:dio/dio.dart'; // Importa Dio para capturar DioException
 
 import '../models/propietario_model.dart';
 import '../repository/auth_repository.dart';
 
-enum AuthStatus { uninitialized, authenticating, authenticated, error }
+enum AuthStatus { uninitialized, authenticating, authenticated, unauthenticated, error }
 
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _repo;
@@ -16,6 +18,8 @@ class AuthProvider extends ChangeNotifier {
 
   bool _isApiReachable = true;
 
+  Timer? _apiCheckTimer;
+
   AuthProvider(this._repo);
 
   AuthStatus get status => _status;
@@ -25,10 +29,30 @@ class AuthProvider extends ChangeNotifier {
 
   bool get isApiReachable => _isApiReachable;
 
-  // NUEVO: Método para limpiar el mensaje de error
+  bool get isAuthenticated => _token != null && _user != null && _status == AuthStatus.authenticated;
+
   void clearErrorMessage() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  void startApiReachabilityCheck() {
+    _apiCheckTimer?.cancel();
+    _apiCheckTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _checkApiReachability();
+    });
+    _checkApiReachability();
+  }
+
+  void stopApiReachabilityCheck() {
+    _apiCheckTimer?.cancel();
+    _apiCheckTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopApiReachabilityCheck();
+    super.dispose();
   }
 
   Future<void> register({
@@ -41,27 +65,31 @@ class AuthProvider extends ChangeNotifier {
     await _checkApiReachability();
     if (!_isApiReachable) {
       _errorMessage = 'No se puede conectar al servidor para registrarse.';
-      _status = AuthStatus.error;
+      _status = AuthStatus.unauthenticated;
       notifyListeners();
       return;
     }
 
     _status = AuthStatus.authenticating;
+    _errorMessage = null;
     notifyListeners();
     try {
-      final resp = await _repo.register(
+      await _repo.register(
         nombre: nombre,
         identificacion: identificacion,
         correo: correo,
         password: password,
         celular: celular,
       );
-      // Tras un registro exitoso, normalmente no hay token todavía,
-      // la idea es que el usuario ahora inicie sesión.
-      _status = AuthStatus.uninitialized; // Vuelve a uninitialized para que LoginView sepa que es exitoso
-      _errorMessage = null; // Limpiar mensaje de error si fue exitoso
+      _status = AuthStatus.unauthenticated; // Después del registro, el usuario aún no está autenticado
+      _errorMessage = null;
     } catch (e) {
-      _errorMessage = e.toString();
+      // Captura de excepciones más específica para DioException
+      if (e is DioException) {
+        _errorMessage = e.response?.data['message'] ?? 'Error de registro.';
+      } else {
+        _errorMessage = e.toString();
+      }
       _status = AuthStatus.error;
     }
     notifyListeners();
@@ -74,12 +102,13 @@ class AuthProvider extends ChangeNotifier {
     await _checkApiReachability();
     if (!_isApiReachable) {
       _errorMessage = 'No se puede conectar al servidor para iniciar sesión.';
-      _status = AuthStatus.error;
+      _status = AuthStatus.unauthenticated;
       notifyListeners();
       return;
     }
 
     _status = AuthStatus.authenticating;
+    _errorMessage = null;
     notifyListeners();
     try {
       final resp = await _repo.login(correo: correo, password: password);
@@ -88,7 +117,15 @@ class AuthProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('accessToken', _token!);
       _status = AuthStatus.authenticated;
-      _errorMessage = null; // Limpiar mensaje de error
+      _errorMessage = null;
+    } on DioException catch (e) {
+      // ¡Aquí es donde manejas el 401 del login!
+      if (e.response?.statusCode == 401) {
+        _errorMessage = 'Credenciales inválidas. Por favor, verifica tu correo y contraseña.';
+      } else {
+        _errorMessage = e.response?.data['message'] ?? 'Error al iniciar sesión.';
+      }
+      _status = AuthStatus.error; // Se pone en error si las credenciales son incorrectas
     } catch (e) {
       _errorMessage = e.toString();
       _status = AuthStatus.error;
@@ -97,7 +134,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    _status = AuthStatus.uninitialized;
+    _status = AuthStatus.unauthenticated;
     _token = null;
     _user = null;
     _errorMessage = null;
@@ -107,15 +144,46 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> tryAutoLogin() async {
+    _status = AuthStatus.authenticating;
+    notifyListeners();
+
     await _checkApiReachability();
 
+    if (!_isApiReachable) {
+      _errorMessage = 'No se puede conectar al servidor. Intente más tarde.';
+      _status = AuthStatus.unauthenticated; // Va a unauthenticated si no hay conexión
+      notifyListeners();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('accessToken');
-    if (saved != null) {
-      _token = saved;
-      _status = AuthStatus.authenticated;
+    final savedToken = prefs.getString('accessToken');
+
+    if (savedToken != null && savedToken.isNotEmpty) {
+      try {
+        // Intenta validar el token con el backend
+        _user = await _repo.validateToken(savedToken);
+        _token = savedToken; // Si la validación fue exitosa, el token es válido
+        _status = AuthStatus.authenticated;
+        _errorMessage = null;
+      } on DioException catch (e) {
+        // Si el token es inválido o expirado (401/403)
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          _errorMessage = 'Sesión expirada o token inválido. Por favor, inicie sesión de nuevo.';
+          await logout(); // Fuerza el logout
+        } else {
+          // Otro tipo de error al validar (ej. 500, red, etc.)
+          _errorMessage = e.response?.data['message'] ?? 'Error al validar sesión.';
+          _status = AuthStatus.error;
+        }
+      } catch (e) {
+        _errorMessage = e.toString();
+        _status = AuthStatus.error;
+      }
     } else {
-      _status = AuthStatus.uninitialized;
+      // No hay token guardado o está vacío
+      _status = AuthStatus.unauthenticated;
+      _errorMessage = null;
     }
     notifyListeners();
   }
