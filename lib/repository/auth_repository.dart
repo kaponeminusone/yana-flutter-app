@@ -1,5 +1,6 @@
-// lib/repository/auth_repository.dart (Asegúrate de que este archivo exista)
+// lib/repository/auth_repository.dart
 import '../models/propietario_model.dart';
+import '../models/auth_response.dart'; // Asegúrate de importar AuthResponse
 import '../services/auth_service.dart'; // Asume que tienes un auth_service.dart
 
 class AuthRepository {
@@ -27,19 +28,21 @@ class AuthRepository {
     );
   }
 
-  Future<bool> checkApiReachability() async {
-    return await _service.checkApiStatus();
-  }
-
-  // ¡NUEVO MÉTODO! Para validar el token con el backend
+  // ¡MÉTODO para validar el token con el backend!
   Future<PropietarioModel> validateToken(String token) async {
     return await _service.validateToken(token);
   }
-}
 
-class AuthResponse {
-  final String accessToken;
-  final PropietarioModel propietario;
-
-  AuthResponse({required this.accessToken, required this.propietario});
+  // --- Implementación de checkApiReachability() ---
+  Future<bool> checkApiReachability() async {
+    try {
+      // Delega la lógica de la petición HTTP al AuthService
+      return await _service.checkApiStatus();
+    } catch (e) {
+      // Si por alguna razón el AuthService lanza un error (que no debería si está bien manejado),
+      // lo capturamos aquí para asegurar que siempre retornemos un booleano.
+      print('AuthRepository: Error inesperado al verificar la API: $e'); // Para depuración
+      return false;
+    }
+  }
 }

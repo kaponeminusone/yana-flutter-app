@@ -6,6 +6,7 @@ import 'package:yana/providers/auth_provider.dart'; // ¡Importar tu AuthProvide
 import 'package:yana/views/authentication/login_view.dart';
 import 'package:yana/views/home/tabs/alerts_tab.dart';
 import 'package:yana/views/home/tabs/reports_tab.dart';
+import 'package:yana/views/maintenance/add_maintenance_view.dart';
 import 'package:yana/views/maintenance/qr_maintenance_view.dart';
 import 'package:yana/views/vehicles/add_vehicle_view.dart';
 // Asegúrate de importar la pantalla de login si aún no lo haces
@@ -89,9 +90,14 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
       // Mantenimiento
         return [
           SpeedDialChild(
-            child: const Icon(Icons.build),
-            label: 'Nueva orden',
-            onTap: () => debugPrint('Crear orden de mantenimiento'),
+            child: const Icon(Icons.build), // El ícono de construcción
+            label: 'Nuevo mantenimiento', // El texto que se muestra junto al botón
+            onTap: () {
+              // ESTO ES LO IMPORTANTE: Navegar a la nueva vista
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddMaintenanceView()),
+              );
+            },
           ),
           SpeedDialChild(
             child: const Icon(Icons.qr_code),

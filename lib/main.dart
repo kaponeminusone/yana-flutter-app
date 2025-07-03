@@ -6,11 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
 
 import 'package:yana/providers/auth_provider.dart';
+import 'package:yana/providers/mantenimiento_provider.dart';
 import 'package:yana/repository/auth_repository.dart';
+import 'package:yana/repository/mantenimiento_repository.dart';
 import 'package:yana/services/auth_service.dart';
 
 import 'package:yana/providers/vehiculo_provider.dart';
 import 'package:yana/repository/vehiculo_repository.dart';
+import 'package:yana/services/mantenimiento_service.dart';
 import 'package:yana/services/vehiculo_service.dart';
 
 import 'package:yana/views/authentication/login_view.dart';
@@ -31,8 +34,8 @@ void main() async {
         // 1. Configuración de Dio Base (para endpoints que no requieren token, ej. login, register, status)
         Provider<Dio>(
           create: (_) => Dio(BaseOptions(
-            baseUrl: 'http://10.0.2.2:5000', // ¡AJUSTA ESTA URL!
-            // baseUrl: 'https://yana-gestorvehicular.onrender.com', // ¡AJUSTA ESTA URL!
+            // baseUrl: 'http://10.0.2.2:5000', // ¡AJUSTA ESTA URL!
+            baseUrl: 'https://yana-gestorvehicular.onrender.com', // ¡AJUSTA ESTA URL!
             contentType: Headers.jsonContentType,
           )),
           dispose: (_, dio) => dio.close(),
@@ -46,7 +49,8 @@ void main() async {
         ProxyProvider<SharedPreferences, Dio>(
           update: (_, prefs, previousDio) {
             final authenticatedDio = Dio(BaseOptions(
-              baseUrl: 'http://10.0.2.2:5000', // ¡AJUSTA ESTA URL!
+              // baseUrl: 'http://10.0.2.2:5000', // ¡AJUSTA ESTA URL!
+              baseUrl: 'https://yana-gestorvehicular.onrender.com', // ¡AJUSTA ESTA URL!
               contentType: Headers.jsonContentType,
             ));
 
@@ -139,6 +143,25 @@ void main() async {
             previousVehiculoProvider.updateRepository(vehiculoRepo);
             return previousVehiculoProvider;
           },
+        ),
+        // --- Nuevos Proveedores para Mantenimiento ---
+        // Proveedor para MantenimientoService
+        Provider<MantenimientoService>(
+          create: (context) => MantenimientoService(
+            Provider.of<Dio>(context, listen: false), // Usa la misma instancia de Dio
+          ),
+        ),
+        // Proveedor para MantenimientoRepository
+        Provider<MantenimientoRepository>(
+          create: (context) => MantenimientoRepository(
+            Provider.of<MantenimientoService>(context, listen: false),
+          ),
+        ),
+        // Proveedor para MantenimientoProvider (ChangeNotifier)
+        ChangeNotifierProvider<MantenimientoProvider>(
+          create: (context) => MantenimientoProvider(
+            Provider.of<MantenimientoRepository>(context, listen: false),
+          ),
         ),
       ],
       child: const MyApp(),
