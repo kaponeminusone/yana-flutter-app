@@ -1,8 +1,6 @@
 // lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// Quita la importación de connectivity_plus si la tenías
-// import 'package:connectivity_plus/connectivity_plus.dart'; 
 
 import '../models/propietario_model.dart';
 import '../repository/auth_repository.dart';
@@ -16,8 +14,7 @@ class AuthProvider extends ChangeNotifier {
   PropietarioModel? _user;
   String? _errorMessage;
 
-  // NUEVO: Estado de la alcanzabilidad de la API
-  bool _isApiReachable = true; // Asumimos true por defecto hasta que se compruebe
+  bool _isApiReachable = true;
 
   AuthProvider(this._repo);
 
@@ -26,8 +23,13 @@ class AuthProvider extends ChangeNotifier {
   String? get token => _token;
   String? get errorMessage => _errorMessage;
 
-  // NUEVO: Getter para saber si la API es alcanzable
   bool get isApiReachable => _isApiReachable;
+
+  // NUEVO: Método para limpiar el mensaje de error
+  void clearErrorMessage() {
+    _errorMessage = null;
+    notifyListeners();
+  }
 
   Future<void> register({
     required String nombre,
@@ -36,8 +38,7 @@ class AuthProvider extends ChangeNotifier {
     required String password,
     required String celular,
   }) async {
-    // NUEVO: Verificar si la API es alcanzable antes de registrar
-    await _checkApiReachability(); // Actualiza _isApiReachable
+    await _checkApiReachability();
     if (!_isApiReachable) {
       _errorMessage = 'No se puede conectar al servidor para registrarse.';
       _status = AuthStatus.error;
@@ -55,7 +56,9 @@ class AuthProvider extends ChangeNotifier {
         password: password,
         celular: celular,
       );
-      _status = AuthStatus.uninitialized; // O auto-login, como lo tengas
+      // Tras un registro exitoso, normalmente no hay token todavía,
+      // la idea es que el usuario ahora inicie sesión.
+      _status = AuthStatus.uninitialized; // Vuelve a uninitialized para que LoginView sepa que es exitoso
       _errorMessage = null; // Limpiar mensaje de error si fue exitoso
     } catch (e) {
       _errorMessage = e.toString();
@@ -68,8 +71,7 @@ class AuthProvider extends ChangeNotifier {
     required String correo,
     required String password,
   }) async {
-    // NUEVO: Verificar si la API es alcanzable antes de iniciar sesión
-    await _checkApiReachability(); // Actualiza _isApiReachable
+    await _checkApiReachability();
     if (!_isApiReachable) {
       _errorMessage = 'No se puede conectar al servidor para iniciar sesión.';
       _status = AuthStatus.error;
@@ -98,15 +100,13 @@ class AuthProvider extends ChangeNotifier {
     _status = AuthStatus.uninitialized;
     _token = null;
     _user = null;
-    _errorMessage = null; // Limpiar mensaje de error
+    _errorMessage = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('accessToken');
     notifyListeners();
   }
 
-  /// Al inicio de la app, cargar token si existe
   Future<void> tryAutoLogin() async {
-    // NUEVO: Verificar alcanzabilidad de la API al inicio
     await _checkApiReachability();
 
     final prefs = await SharedPreferences.getInstance();
@@ -120,21 +120,16 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // NUEVO: Método privado para verificar si la API es alcanzable
   Future<void> _checkApiReachability() async {
     final reachable = await _repo.checkApiReachability();
-    if (_isApiReachable != reachable) { // Solo notificar si el estado cambia
+    if (_isApiReachable != reachable) {
       _isApiReachable = reachable;
       if (!reachable) {
-        print('La API no es alcanzable.'); // Para depuración
+        print('La API no es alcanzable.');
       } else {
-        print('La API es alcanzable.'); // Para depuración
+        print('La API es alcanzable.');
       }
-      notifyListeners(); // Notifica el cambio de estado de alcanzabilidad
+      notifyListeners();
     }
   }
-
-  // Opcional: Si quieres un monitoreo en tiempo real, deberías implementar
-  // un Listener de PeriodicTimer o similar que llame a _checkApiReachability
-  // cada cierto tiempo, pero eso sería un cambio más grande y no lo pediste.
 }
