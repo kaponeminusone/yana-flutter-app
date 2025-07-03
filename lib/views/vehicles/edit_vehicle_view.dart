@@ -1,25 +1,36 @@
-// lib/views/vehicles/add_vehicle_view.dart
+// lib/views/vehicles/edit_vehicle_view.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:yana/providers/auth_provider.dart';
+import 'package:yana/models/vehiculo_model.dart';
 import 'package:yana/providers/vehiculo_provider.dart';
 
-class AddVehicleView extends StatefulWidget {
-  const AddVehicleView({Key? key}) : super(key: key);
+class EditVehicleView extends StatefulWidget {
+  final VehiculoModel vehicle;
+  const EditVehicleView({Key? key, required this.vehicle}) : super(key: key);
 
   @override
-  State<AddVehicleView> createState() => _AddVehicleViewState();
+  State<EditVehicleView> createState() => _EditVehicleViewState();
 }
 
-class _AddVehicleViewState extends State<AddVehicleView> {
+class _EditVehicleViewState extends State<EditVehicleView> {
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _placaController;
+  late TextEditingController _marcaController;
+  late TextEditingController _modeloController;
+  late TextEditingController _yearController;
+  late TextEditingController _colorController;
 
-  final _placaController = TextEditingController();
-  final _marcaController = TextEditingController();
-  final _modeloController = TextEditingController();
-  final _yearController = TextEditingController();
-  final _colorController = TextEditingController();
+  @override
+  void initState() {
+    super.initState();
+    final v = widget.vehicle;
+    _placaController  = TextEditingController(text: v.placa);
+    _marcaController  = TextEditingController(text: v.marca);
+    _modeloController = TextEditingController(text: v.modelo);
+    _yearController   = TextEditingController(text: v.year.toString());
+    _colorController  = TextEditingController(text: v.color);
+  }
 
   @override
   void dispose() {
@@ -37,20 +48,8 @@ class _AddVehicleViewState extends State<AddVehicleView> {
       );
 
   Future<void> _submit() async {
-    final auth = context.read<AuthProvider>();
-    final vehProv = context.read<VehiculoProvider>();
-
     if (!_formKey.currentState!.validate()) return;
-
-    if (!auth.isAuthenticated || auth.user?.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, inicia sesión nuevamente.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    final vehProv = context.read<VehiculoProvider>();
 
     final data = {
       'placa': _placaController.text.trim(),
@@ -58,7 +57,6 @@ class _AddVehicleViewState extends State<AddVehicleView> {
       'modelo': _modeloController.text.trim(),
       'year': int.tryParse(_yearController.text.trim()) ?? 0,
       'color': _colorController.text.trim(),
-      'propietarioId': auth.user!.id,
     };
 
     showDialog(
@@ -67,8 +65,8 @@ class _AddVehicleViewState extends State<AddVehicleView> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    await vehProv.createVehiculo(data);
-    Navigator.of(context).pop(); // quita el loading
+    await vehProv.updateVehiculo(widget.vehicle.id, data);
+    Navigator.of(context).pop(); // cierra loading
 
     if (vehProv.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,11 +79,11 @@ class _AddVehicleViewState extends State<AddVehicleView> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vehículo agregado exitosamente!'),
+          content: Text('Vehículo actualizado exitosamente!'),
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.of(context).pop(); // cierra la vista
+      Navigator.of(context).pop(); // regresa al tab
     }
   }
 
@@ -95,18 +93,16 @@ class _AddVehicleViewState extends State<AddVehicleView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Agregar Vehículo'),
+        title: const Text('Editar Vehículo'),
         centerTitle: true,
-        elevation: 0,
         backgroundColor: Colors.transparent,
+        elevation: 0,
         foregroundColor: Colors.black87,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 2,
           shadowColor: Colors.black12,
           child: Padding(
@@ -114,49 +110,46 @@ class _AddVehicleViewState extends State<AddVehicleView> {
             child: Form(
               key: _formKey,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // -- MISMO FORMULARIO QUE EN ADD, PERO CON HINTS PRELLENOS --
                   TextFormField(
                     controller: _placaController,
                     decoration: InputDecoration(
                       labelText: 'Placa',
-                      hintText: 'Ej: ABC123',
+                      hintText: 'Ej: ${widget.vehicle.placa}',
                       border: _inputBorder(),
                       focusedBorder: _inputBorder(),
                     ),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Obligatorio' : null,
+                    validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _marcaController,
                     decoration: InputDecoration(
                       labelText: 'Marca',
-                      hintText: 'Ej: Toyota',
+                      hintText: 'Ej: ${widget.vehicle.marca}',
                       border: _inputBorder(),
                       focusedBorder: _inputBorder(),
                     ),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Obligatorio' : null,
+                    validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _modeloController,
                     decoration: InputDecoration(
                       labelText: 'Modelo',
-                      hintText: 'Ej: Corolla',
+                      hintText: 'Ej: ${widget.vehicle.modelo}',
                       border: _inputBorder(),
                       focusedBorder: _inputBorder(),
                     ),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Obligatorio' : null,
+                    validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _yearController,
                     decoration: InputDecoration(
                       labelText: 'Año',
-                      hintText: 'Ej: 2022',
+                      hintText: 'Ej: ${widget.vehicle.year}',
                       border: _inputBorder(),
                       focusedBorder: _inputBorder(),
                     ),
@@ -165,9 +158,7 @@ class _AddVehicleViewState extends State<AddVehicleView> {
                       if (v == null || v.isEmpty) return 'Obligatorio';
                       final y = int.tryParse(v);
                       if (y == null) return 'Número inválido';
-                      if (y < 1900 || y > DateTime.now().year + 2) {
-                        return 'Año fuera de rango';
-                      }
+                      if (y < 1900 || y > DateTime.now().year + 2) return 'Año fuera de rango';
                       return null;
                     },
                   ),
@@ -176,31 +167,27 @@ class _AddVehicleViewState extends State<AddVehicleView> {
                     controller: _colorController,
                     decoration: InputDecoration(
                       labelText: 'Color',
-                      hintText: 'Ej: Rojo',
+                      hintText: 'Ej: ${widget.vehicle.color}',
                       border: _inputBorder(),
                       focusedBorder: _inputBorder(),
                     ),
-                    validator: (v) =>
-                        v == null || v.isEmpty ? 'Obligatorio' : null,
+                    validator: (v) => v == null || v.isEmpty ? 'Obligatorio' : null,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
                     child: isLoading
                         ? const SizedBox(
                             height: 24,
                             width: 24,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Confirmar', style: TextStyle(fontSize: 16)),
+                        : const Text('Guardar cambios', style: TextStyle(fontSize: 16)),
                   ),
                 ],
               ),

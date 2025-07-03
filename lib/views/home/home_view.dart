@@ -84,11 +84,6 @@ class _HomeViewState extends State<HomeView> with SingleTickerProviderStateMixin
               );
             },
           ),
-          SpeedDialChild(
-            child: const Icon(Icons.camera_alt),
-            label: 'Escanear VIN',
-            onTap: () => debugPrint('Escanear VIN'),
-          ),
         ];
       case 1:
       // Mantenimiento

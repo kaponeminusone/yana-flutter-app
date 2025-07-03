@@ -32,6 +32,7 @@ void main() async {
         Provider<Dio>(
           create: (_) => Dio(BaseOptions(
             baseUrl: 'http://10.0.2.2:5000', // ¡AJUSTA ESTA URL!
+            // baseUrl: 'https://yana-gestorvehicular.onrender.com', // ¡AJUSTA ESTA URL!
             contentType: Headers.jsonContentType,
           )),
           dispose: (_, dio) => dio.close(),
