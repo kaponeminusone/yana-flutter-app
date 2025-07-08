@@ -19,9 +19,11 @@ class AuthService {
       return AuthResponse(accessToken: accessToken, propietario: propietario);
     } on DioException catch (e) {
       if (e.response != null) {
-        throw e.response?.data['message'] ?? 'Error de servidor al iniciar sesión.';
+        // MUY IMPORTANTE: Asegúrate de que tu backend envíe un 'message' claro en caso de credenciales incorrectas (generalmente 401).
+        // Por ejemplo, si el backend responde con status 401 y body {"message": "Correo o contraseña incorrectos"}
+        throw e.response?.data['message'] ?? 'Error de servidor al iniciar sesión. Código: ${e.response?.statusCode}';
       } else {
-        throw 'Error de conexión: ${e.message ?? 'No se pudo conectar al servidor.'}';
+        throw 'Error de conexión: No se pudo conectar al servidor. Verifique su internet.';
       }
     } catch (e) {
       throw 'Error inesperado al iniciar sesión: $e';
@@ -45,38 +47,45 @@ class AuthService {
       });
     } on DioException catch (e) {
       if (e.response != null) {
-        throw e.response?.data['message'] ?? 'Error de servidor al registrarse.';
+        throw e.response?.data['message'] ?? 'Error de servidor al registrarse. Código: ${e.response?.statusCode}';
       } else {
-        throw 'Error de conexión: ${e.message ?? 'No se pudo conectar al servidor.'}';
+        throw 'Error de conexión: No se pudo conectar al servidor para registrarse. Verifique su internet.';
       }
     } catch (e) {
       throw 'Error inesperado al registrarse: $e';
     }
   }
 
-  // --- Implementación de checkApiStatus() usando /api/reportes/automaticos ---
+  // --- IMPLEMENTACIÓN DE checkApiStatus() USANDO UN ENDPOINT CONOCIDO COMO /api/auth/login ---
   Future<bool> checkApiStatus() async {
-    return true;
     try {
-      
-      // Usamos el endpoint '/api/reportes/automaticos' que no requiere autenticación
-      // y está documentado como "Solo para visualización".
+      // Intentamos hacer un GET a la ruta base de la API.
+      // Si tu backend tiene una ruta '/' o '/api' que devuelve algo, úsala.
+      // Si no, incluso un 404 aquí significaría que el servidor está activo.
       final response = await _dio.get(
-        '/api/reportes/automaticos',
+        '/', // <--- CAMBIO AQUÍ: Probamos la ruta base.
         options: Options(
-          sendTimeout: const Duration(seconds: 5), // Límite de tiempo para enviar la petición
-          receiveTimeout: const Duration(seconds: 5), // Límite de tiempo para recibir la respuesta
+          sendTimeout: const Duration(seconds: 5),
+          receiveTimeout: const Duration(seconds: 5),
+          validateStatus: (status) {
+            // Aceptamos 2xx (éxito), 400 (Bad Request), 401 (Unauthorized),
+            // 404 (Not Found), 405 (Method Not Allowed) como una señal de que el servidor responde.
+            return status != null &&
+                   (status >= 200 && status < 300 ||
+                    status == 400 ||
+                    status == 401 ||
+                    status == 404 || // <--- ACEPTAMOS 404
+                    status == 405);
+          },
         ),
       );
-      // Consideramos que la API es alcanzable si el status code es 200 OK
-      return response.statusCode == 200;
+      // Si llegamos aquí, el servidor respondió con un estado que consideramos "activo".
+      return true;
     } on DioException catch (e) {
-      // Cualquier DioException (ej. connectionError, timeout, badResponse)
-      // significa que la API no es alcanzable o no respondió correctamente.
-      print('AuthService: Error al verificar estado de la API: ${e.message ?? e.toString()}'); // Mejorar el log
+      // Capturamos 5xx (Internal Server Error) o errores de red.
+      print('AuthService: Error al verificar estado de la API: ${e.message ?? e.toString()}');
       return false;
     } catch (e) {
-      // Otros errores inesperados
       print('AuthService: Error inesperado al verificar estado de la API: $e');
       return false;
     }
@@ -84,22 +93,19 @@ class AuthService {
 
   Future<PropietarioModel> validateToken(String token) async {
     try {
-      // Si el Dio que se inyecta aquí (AuthService(this._dio)) NO tiene un interceptor
-      // que añada automáticamente el token, entonces DEBES descomentar la siguiente línea:
-      final response = await _dio.get('/api/auth/validate', options: Options(headers: {'Authorization': 'Bearer $token'}));
-      // De lo contrario, si tu Dio ya está configurado con un interceptor global para tokens,
-      // la línea de abajo es suficiente:
-      // final response = await _dio.get('/api/auth/validate'); // Si el Dio ya maneja el token via interceptor
-
+      final response = await _dio.get(
+        '/api/auth/validate',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
       return PropietarioModel.fromJson(response.data['propietario'] as Map<String, dynamic>);
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        throw 'Sesión expirada o token inválido. Por favor, inicie sesión de nuevo.';
-      }
       if (e.response != null) {
-        throw e.response?.data['message'] ?? 'Error al validar el token.';
+        if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+          throw e.response?.data['message'] ?? 'Sesión expirada o token inválido. Por favor, inicie sesión de nuevo.';
+        }
+        throw e.response?.data['message'] ?? 'Error al validar el token. Código: ${e.response?.statusCode}';
       } else {
-        throw 'Error de conexión al validar token: ${e.message ?? 'No se pudo conectar al servidor.'}';
+        throw 'Error de conexión al validar token: No se pudo conectar al servidor. Verifique su internet.';
       }
     } catch (e) {
       throw 'Error inesperado al validar token: $e';

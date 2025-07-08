@@ -1,12 +1,13 @@
+// lib/providers/mantenimiento_provider.dart
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart'; // Necesario para FormData
+import 'package:dio/dio.dart'; // Necesario para MultipartFile
 import '../models/mantenimiento_model.dart';
 import '../repository/mantenimiento_repository.dart';
 
 enum MantenimientoStatus { idle, loading, success, error }
 
-class MantenimientoProvider extends ChangeNotifier {
-  MantenimientoRepository _repo; // Ahora no es final para poder actualizarlo
+class MantenimientoProvider with ChangeNotifier {
+  MantenimientoRepository _repo;
   List<MantenimientoModel> _mantenimientos = [];
   String? _errorMessage;
   MantenimientoStatus _status = MantenimientoStatus.idle;
@@ -16,15 +17,11 @@ class MantenimientoProvider extends ChangeNotifier {
   List<MantenimientoModel> get mantenimientos => _mantenimientos;
   String? get errorMessage => _errorMessage;
   MantenimientoStatus get status => _status;
-  bool get isLoading => _status == MantenimientoStatus.loading; // Atajo
+  bool get isLoading => _status == MantenimientoStatus.loading;
 
-  // Método para actualizar el repositorio (útil si el token cambia)
   void updateRepository(MantenimientoRepository newRepo) {
     if (_repo != newRepo) {
       _repo = newRepo;
-      // Opcional: podrías querer volver a cargar los mantenimientos
-      // si el cambio de repositorio implica un cambio de contexto (ej. nuevo usuario logueado)
-      // fetchMantenimientos(); // Considera cuándo es apropiado llamar esto
       notifyListeners();
     }
   }
@@ -32,7 +29,7 @@ class MantenimientoProvider extends ChangeNotifier {
   void clearErrorMessage() {
     _errorMessage = null;
     if (_status == MantenimientoStatus.error) {
-      _status = MantenimientoStatus.idle; // Vuelve a idle después de limpiar el error
+      _status = MantenimientoStatus.idle;
     }
     notifyListeners();
   }
@@ -55,37 +52,40 @@ class MantenimientoProvider extends ChangeNotifier {
       _status = MantenimientoStatus.success;
     } catch (e) {
       _errorMessage = e.toString();
-      _mantenimientos = []; // Limpiar si hay error
+      _mantenimientos = [];
       _status = MantenimientoStatus.error;
     } finally {
       notifyListeners();
     }
   }
 
+  // Cambiado de FormData? a MultipartFile?
   Future<void> createMantenimiento(
-      Map<String, dynamic> data, {FormData? factura}) async {
+      Map<String, dynamic> data, {MultipartFile? facturaFile}) async {
     _status = MantenimientoStatus.loading;
     _errorMessage = null;
     notifyListeners();
     try {
-      final newMantenimiento = await _repo.createMantenimiento(data, factura: factura);
+      final newMantenimiento = await _repo.createMantenimiento(data, facturaFile: facturaFile);
       _mantenimientos.add(newMantenimiento);
       _status = MantenimientoStatus.success;
     } catch (e) {
       _errorMessage = e.toString();
       _status = MantenimientoStatus.error;
+      rethrow;
     } finally {
       notifyListeners();
     }
   }
 
+  // Cambiado de FormData? a MultipartFile?
   Future<void> updateMantenimiento(
-      String id, Map<String, dynamic> data, {FormData? factura}) async {
+      String id, Map<String, dynamic> data, {MultipartFile? facturaFile}) async {
     _status = MantenimientoStatus.loading;
     _errorMessage = null;
     notifyListeners();
     try {
-      final updatedMantenimiento = await _repo.updateMantenimiento(id, data, factura: factura);
+      final updatedMantenimiento = await _repo.updateMantenimiento(id, data, facturaFile: facturaFile);
       int index = _mantenimientos.indexWhere((m) => m.id == id);
       if (index != -1) {
         _mantenimientos[index] = updatedMantenimiento;
@@ -94,6 +94,7 @@ class MantenimientoProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       _status = MantenimientoStatus.error;
+      rethrow;
     } finally {
       notifyListeners();
     }
@@ -110,6 +111,7 @@ class MantenimientoProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       _status = MantenimientoStatus.error;
+      rethrow;
     } finally {
       notifyListeners();
     }

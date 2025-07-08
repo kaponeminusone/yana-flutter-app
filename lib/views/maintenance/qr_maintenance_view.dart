@@ -1,37 +1,88 @@
 // lib/views/home/tabs/qr_order_view.dart
+
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:yana/providers/auth_provider.dart';
 
-class QrOrderView extends StatelessWidget {
-  const QrOrderView({Key? key}) : super(key: key);
+class QrOrderView extends StatefulWidget {
+  /// El ID del vehículo para el que queremos generar el QR
+  final String vehiculoId;
+  const QrOrderView({Key? key, required this.vehiculoId}) : super(key: key);
 
-  // Datos de ejemplo
-  final String qrImageUrl = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/QR_Code_Example.svg/1200px-QR_Code_Example.svg.png';
-  final String fallbackCode = 'WKT-9612';
-  
-  // Cambiamos a una URL que sí funcione para la comprobación
-  final String fallbackUrl = 'https://www.google.com'; 
+  @override
+  State<QrOrderView> createState() => _QrOrderViewState();
+}
 
-  // Función para lanzar la URL
-  Future<void> _launchUrl(BuildContext context, String code) async {
-    // Construimos la URL con el código
-    final url = Uri.parse('$fallbackUrl/?code=$code');
-    
-    // **AQUÍ ESTÁ LA LÍNEA PARA COMPROBAR**
-    // Imprimimos la URL completa en la consola para verificar que se construye bien.
-    debugPrint('Intentando abrir la URL: $url'); 
+class _QrOrderViewState extends State<QrOrderView> {
+  bool _loading = true;
+  String? _errorMsg;
+  Uint8List? _qrImage;
+  Uri? _submissionUri;
+  String? _fallbackCode;
 
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      // Manejo de error para el usuario
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No se pudo abrir el enlace. URL: $url'),
-          ),
-        );
+  @override
+  void initState() {
+    super.initState();
+    _fetchQrCode();
+  }
+
+  Future<void> _fetchQrCode() async {
+    setState(() {
+      _loading = true;
+      _errorMsg = null;
+    });
+
+    try {
+      final authToken = context.read<AuthProvider>().token; // tu JWT
+      final url = Uri.parse('https://yana-gestorvehicular.onrender.com/api/qr/mantenimiento/${widget.vehiculoId}');
+      final resp = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $authToken',
+        },
+      );
+      if (resp.statusCode != 200) {
+        throw Exception('Error ${resp.statusCode}: ${resp.body}');
       }
+
+      final data = json.decode(resp.body) as Map<String, dynamic>;
+      final imgData = data['qrCodeImage'] as String; // "data:image/png;base64,..."
+      final workshopUrl = data['workshopSubmissionUrl'] as String;
+
+      // Extraer sólo el base64 tras la coma
+      final base64Part = imgData.split(',').last;
+      final bytes = base64.decode(base64Part);
+
+      // Extraer código de fallback: la query param "token"
+      final uri = Uri.parse(workshopUrl);
+      final code = uri.queryParameters['token'] ?? '';
+
+      setState(() {
+        _qrImage        = bytes;
+        _submissionUri  = uri;
+        _fallbackCode   = code;
+        _loading        = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMsg = e.toString();
+        _loading  = false;
+      });
+    }
+  }
+
+  Future<void> _launchSubmission() async {
+    if (_submissionUri == null) return;
+    if (await canLaunchUrl(_submissionUri!)) {
+      await launchUrl(_submissionUri!, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo abrir ${_submissionUri.toString()}')),
+      );
     }
   }
 
@@ -39,118 +90,100 @@ class QrOrderView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Nueva Orden QR'),
         leading: BackButton(onPressed: () => Navigator.of(context).pop()),
-        title: const Text(
-          'Nueva Orden QR',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-        ),
         centerTitle: true,
-        elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
+        elevation: 0,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Contenedor para el QR con la imagen de red
-              Center(
-                child: Container(
-                  height: 250,
-                  width: 250,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      qrImageUrl,
-                      fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                : null,
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : (_errorMsg != null
+                ? Center(child: Text('Error: $_errorMsg'))
+                : Column(
+                    children: [
+                      // QR
+                      if (_qrImage != null)
+                        Container(
+                          height: 250,
+                          width: 250,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image, size: 64, color: Colors.grey.shade400),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Error al cargar la imagen QR',
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
-                          ],
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.memory(_qrImage!, fit: BoxFit.contain),
+                          ),
                         ),
+                      const SizedBox(height: 24),
+
+                      const Text(
+                        'Si no puedes escanear el QR, ingresa el siguiente código en la web:',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 15),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Si no puedes escanear el QR, ingresa el siguiente código en:',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15),
-              ),
-              const SizedBox(height: 8),
-              // URL de la página
-              Text(
-                fallbackUrl,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Código manual
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Text(
-                  fallbackCode,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () {
-                  _launchUrl(context, fallbackCode);
-                },
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: const Text('Ir a la Web', style: TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
+                      const SizedBox(height: 8),
+
+                      // URL pública (sin el token)
+                      if (_submissionUri != null)
+                        Text(
+                          _submissionUri!.removeQuery().toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+
+                      const SizedBox(height: 16),
+                      // Código manual
+                      if (_fallbackCode != null)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Text(
+                            _fallbackCode!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                        ),
+
+                      const Spacer(),
+
+                      ElevatedButton(
+                        onPressed: _launchSubmission,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Ir a la Web', style: TextStyle(fontSize: 16)),
+                      ),
+                    ],
+                  )),
       ),
     );
+  }
+}
+
+/// Extensión para quitar la query de un Uri
+extension on Uri {
+  Uri removeQuery() {
+    return replace(queryParameters: {});
   }
 }

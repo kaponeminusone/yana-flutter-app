@@ -1,98 +1,160 @@
-import 'dart:convert';
-
-import 'package:flutter/material.dart'; // Solo si necesitas anotaciones como @required
-import 'vehiculo_model.dart'; // Asumo que tienes VehiculoModel definido
-import 'taller_mecanico_model.dart'; // Nuevo archivo para TallerMecanicoModel
+// lib/models/mantenimiento_model.dart
+import 'package:yana/models/vehiculo_model.dart';
+import 'package:intl/intl.dart'; // Agrega si lo usas para formatear fechas
 
 class MantenimientoModel {
-  final String vehiculoId;
-  final String? tallerMecanicoId; // ¡Puede ser nulo!
-  // ...
-  final VehiculoModel? vehiculo;
-  final TallerMecanicoModel? tallerMecanico; // ¡Puede ser nulo!
   final String id;
+  final String vehiculoId;
+  final String? tallerMecanicoId; // <--- ¡AÑADIR ESTE CAMPO!
   final String tipo;
   final DateTime fecha;
-  final DateTime? fechaProximoMantenimiento;
   final int kilometraje;
-  final String descripcion;
+  final String? descripcion;
+  final String? facturaPath;
   final double costo;
-  final String? facturaPath; // URL o path relativo del archivo
-
-  // Campos de tiempo
+  final DateTime? fechaVencimiento;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final TallerMecanicoModel? tallerMecanico;
+  final VehiculoModel? vehiculo;
 
   MantenimientoModel({
     required this.id,
+    required this.vehiculoId,
+    this.tallerMecanicoId, // <--- AÑADIR EN EL CONSTRUCTOR
     required this.tipo,
     required this.fecha,
-    this.fechaProximoMantenimiento,
     required this.kilometraje,
-    required this.descripcion,
-    required this.costo,
+    this.descripcion,
     this.facturaPath,
-    required this.vehiculoId,
-    this.tallerMecanicoId,
+    required this.costo,
+    this.fechaVencimiento,
     required this.createdAt,
     required this.updatedAt,
-    this.vehiculo,
     this.tallerMecanico,
+    this.vehiculo,
   });
 
   factory MantenimientoModel.fromJson(Map<String, dynamic> json) {
-    // AÑADE ESTE PRINT PARA VER EL JSON COMPLETO QUE LLEGA
-    print('MantenimientoModel.fromJson - JSON recibido: ${jsonEncode(json)}');
-
-    try {
-      return MantenimientoModel(
-        id: json['id'] as String,
-        tipo: json['tipo'] as String,
-        fecha: DateTime.parse(json['fecha'] as String),
-        fechaProximoMantenimiento: json['fechaProximoMantenimiento'] != null
-            ? DateTime.parse(json['fechaProximoMantenimiento'] as String)
-            : null,
-        kilometraje: json['kilometraje'] as int,
-        descripcion: json['descripcion'] as String,
-        costo: (json['costo'] is String)
-            ? double.parse(json['costo'])
-            : (json['costo'] as num).toDouble(),
-        facturaPath: json['facturaPath'] as String?, // Usar String? para manejar null
-        vehiculoId: json['vehiculoId'] as String,
-        tallerMecanicoId: json['tallerMecanicoId'] as String?, // Usar String? para manejar null
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        vehiculo: json['vehiculo'] != null
-            ? VehiculoModel.fromJson(json['vehiculo'] as Map<String, dynamic>)
-            : null,
-        tallerMecanico: json['tallerMecanico'] != null
-            ? TallerMecanicoModel.fromJson(json['tallerMecanico'] as Map<String, dynamic>)
-            : null,
-      );
-    } catch (e) {
-      // Opcional: imprimir el error si ocurre durante el parseo de un campo específico
-      print('Error al parsear MantenimientoModel: $e, JSON: ${jsonEncode(json)}');
-      rethrow; // Vuelve a lanzar la excepción para que el StackTrace sea visible
-    }
+    return MantenimientoModel(
+      id: json['id'] as String,
+      vehiculoId: json['vehiculoId'] as String,
+      tallerMecanicoId: json['tallerMecanicoId'] as String?, // <--- ¡LEERLO COMO String?!
+      tipo: json['tipo'] as String,
+      fecha: DateTime.parse(json['fecha'] as String),
+      kilometraje: json['kilometraje'] is int
+          ? json['kilometraje'] as int
+          : (json['kilometraje'] != null ? int.tryParse(json['kilometraje'].toString()) ?? 0 : 0),
+      descripcion: json['descripcion'] as String?,
+      facturaPath: json['facturaPath'] as String?,
+      costo: json['costo'] is double
+          ? json['costo'] as double
+          : (json['costo'] != null ? double.tryParse(json['costo'].toString()) ?? 0.0 : 0.0),
+      fechaVencimiento: json['fechaVencimiento'] != null
+          ? DateTime.parse(json['fechaVencimiento'] as String)
+          : null,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      tallerMecanico: json['tallerMecanico'] != null
+          ? TallerMecanicoModel.fromJson(json['tallerMecanico'] as Map<String, dynamic>)
+          : null,
+      vehiculo: json['vehiculo'] != null
+          ? VehiculoModel.fromJson(json['vehiculo'] as Map<String, dynamic>)
+          : null,
+    );
   }
 
-  // Método para convertir a JSON, útil para enviar al backend (sin las relaciones anidadas)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'vehiculoId': vehiculoId,
+      'tallerMecanicoId': tallerMecanicoId, // <--- Incluir en toJson
       'tipo': tipo,
       'fecha': fecha.toIso8601String(),
-      'fechaProximoMantenimiento': fechaProximoMantenimiento?.toIso8601String(),
       'kilometraje': kilometraje,
       'descripcion': descripcion,
-      'costo': costo,
       'facturaPath': facturaPath,
-      'vehiculoId': vehiculoId,
-      'tallerMecanicoId': tallerMecanicoId,
+      'costo': costo,
+      'fechaVencimiento': fechaVencimiento?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
-      // No incluimos 'vehiculo' y 'tallerMecanico' aquí,
-      // ya que el backend espera solo los IDs para las relaciones.
+      'tallerMecanico': tallerMecanico?.toJson(),
+      'vehiculo': vehiculo?.toJson(), // Asegúrate de que VehiculoModel tiene toJson
+    };
+  }
+}
+
+// Asegúrate de que TallerMecanicoModel.dart esté así también
+class TallerMecanicoModel {
+  final String id;
+  final String nombre;
+  final String? nitOCedula;
+  final String? direccion;
+  final String? telefono;
+  final String? correo;
+
+  TallerMecanicoModel({
+    required this.id,
+    required this.nombre,
+    this.nitOCedula,
+    this.direccion,
+    this.telefono,
+    this.correo,
+  });
+
+  factory TallerMecanicoModel.fromJson(Map<String, dynamic> json) {
+    return TallerMecanicoModel(
+      id: json['id'] as String,
+      nombre: json['nombre'] as String,
+      nitOCedula: json['nitOCedula'] as String?,
+      direccion: json['direccion'] as String?,
+      telefono: json['telefono'] as String?,
+      correo: json['correo'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'nombre': nombre,
+      'nitOCedula': nitOCedula,
+      'direccion': direccion,
+      'telefono': telefono,
+      'correo': correo,
+    };
+  }
+}
+
+// También, si no lo tienes, deberías tener un VehiculoModel con un toJson
+// Ejemplo (ajusta si es diferente):
+class VehiculoModel {
+  final String id;
+  final String placa;
+  final String marca;
+  final String modelo;
+
+  VehiculoModel({
+    required this.id,
+    required this.placa,
+    required this.marca,
+    required this.modelo,
+  });
+
+  factory VehiculoModel.fromJson(Map<String, dynamic> json) {
+    return VehiculoModel(
+      id: json['id'] as String,
+      placa: json['placa'] as String,
+      marca: json['marca'] as String,
+      modelo: json['modelo'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'placa': placa,
+      'marca': marca,
+      'modelo': modelo,
     };
   }
 }

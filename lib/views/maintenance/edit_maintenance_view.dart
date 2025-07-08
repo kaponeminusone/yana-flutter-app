@@ -1,55 +1,79 @@
+// lib/views/maintenance/edit_maintenance_view.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // Para formatear la fecha
+import 'package:intl/intl.dart';
 import 'package:dio/dio.dart'; // Importado para MultipartFile
 import 'package:image_picker/image_picker.dart'; // Importado para seleccionar imágenes/archivos
 
 import 'package:yana/providers/auth_provider.dart';
 import 'package:yana/providers/mantenimiento_provider.dart';
 import 'package:yana/providers/vehiculo_provider.dart';
-// import 'package:yana/models/vehiculo_model.dart'; // No necesario si no se usa directamente
+import 'package:yana/models/mantenimiento_model.dart';
+import 'package:yana/models/vehiculo_model.dart'; // Importa VehiculoModel si lo usas directamente
 
-class AddMaintenanceView extends StatefulWidget {
-  const AddMaintenanceView({Key? key}) : super(key: key);
+class EditMaintenanceView extends StatefulWidget {
+  final MantenimientoModel maintenance;
+
+  const EditMaintenanceView({Key? key, required this.maintenance}) : super(key: key);
 
   @override
-  State<AddMaintenanceView> createState() => _AddMaintenanceViewState();
+  State<EditMaintenanceView> createState() => _EditMaintenanceViewState();
 }
 
-class _AddMaintenanceViewState extends State<AddMaintenanceView> {
+class _EditMaintenanceViewState extends State<EditMaintenanceView> {
   final _formKey = GlobalKey<FormState>();
 
-  final _descripcionController = TextEditingController();
-  final _tipoController = TextEditingController();
-  final _costoController = TextEditingController();
-  final _kilometrajeController = TextEditingController();
+  late final TextEditingController _descripcionController;
+  late final TextEditingController _tipoController;
+  late final TextEditingController _costoController;
+  late final TextEditingController _kilometrajeController;
 
   DateTime? _selectedMaintenanceDate;
   DateTime? _selectedNextMaintenanceDate;
 
   // NUEVOS CONTROLADORES PARA LOS CAMPOS DE FECHA
-  final TextEditingController _maintenanceDateController = TextEditingController();
-  final TextEditingController _nextMaintenanceDateController = TextEditingController();
+  late final TextEditingController _maintenanceDateController;
+  late final TextEditingController _nextMaintenanceDateController;
 
 
   String? _selectedVehicleId;
+
   XFile? _selectedInvoiceXFile;
+  String? _existingInvoiceUrl; // Si tu MantenimientoModel guarda la URL de la factura
 
   final List<String> _tiposMantenimiento = [
-    'Preventivo',
-    'Correctivo',
-    'Inspección',
-    'Cambio de Aceite',
-    'Frenos',
-    'Neumáticos',
-    'Eléctrico',
-    'Lavado/Detallado',
-    'Otros',
+    'Preventivo', 'Correctivo', 'Inspección', 'Cambio de Aceite',
+    'Frenos', 'Neumáticos', 'Eléctrico', 'Lavado/Detallado', 'Otros',
   ];
 
   @override
   void initState() {
     super.initState();
+    _descripcionController = TextEditingController(text: widget.maintenance.descripcion);
+    _tipoController = TextEditingController(text: widget.maintenance.tipo);
+    _costoController = TextEditingController(text: widget.maintenance.costo.toString());
+    _kilometrajeController = TextEditingController(text: widget.maintenance.kilometraje.toString());
+
+    _selectedMaintenanceDate = widget.maintenance.fecha;
+    _selectedNextMaintenanceDate = widget.maintenance.fechaVencimiento;
+
+    // Initialize date controllers
+    _maintenanceDateController = TextEditingController(
+      text: _selectedMaintenanceDate != null
+          ? DateFormat('dd/MM/yyyy').format(_selectedMaintenanceDate!)
+          : '',
+    );
+    _nextMaintenanceDateController = TextEditingController(
+      text: _selectedNextMaintenanceDate != null
+          ? DateFormat('dd/MM/yyyy').format(_selectedNextMaintenanceDate!)
+          : '',
+    );
+
+    _selectedVehicleId = widget.maintenance.vehiculoId;
+
+    // If your maintenance model has a URL for the invoice, initialize it here
+    // _existingInvoiceUrl = widget.maintenance.facturaUrl; // Adjust according to your MantenimientoModel
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<VehiculoProvider>().fetchVehiculos();
     });
@@ -61,9 +85,8 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
     _tipoController.dispose();
     _costoController.dispose();
     _kilometrajeController.dispose();
-    // DISPONER LOS NUEVOS CONTROLADORES
-    _maintenanceDateController.dispose();
-    _nextMaintenanceDateController.dispose();
+    _maintenanceDateController.dispose(); // Dispose new date controller
+    _nextMaintenanceDateController.dispose(); // Dispose new date controller
     super.dispose();
   }
 
@@ -74,7 +97,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
 
   Future<void> _pickDate(
       {required Function(DateTime) onDateTimeSelected,
-      required TextEditingController controllerToUpdate, // Nuevo parámetro para el controlador
+      required TextEditingController controllerToUpdate, // New parameter for the controller
       DateTime? initialDate}) async {
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -84,7 +107,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
     );
     if (picked != null) {
       onDateTimeSelected(picked);
-      // ACTUALIZAR EL TEXTO DEL CONTROLADOR CON LA FECHA SELECCIONADA
+      // UPDATE THE TEXT OF THE CONTROLLER WITH THE SELECTED DATE
       controllerToUpdate.text = DateFormat('dd/MM/yyyy').format(picked);
     }
   }
@@ -96,6 +119,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
     if (pickedFile != null) {
       setState(() {
         _selectedInvoiceXFile = pickedFile;
+        _existingInvoiceUrl = null; // Clear existing URL if a new file is selected
       });
     }
   }
@@ -104,10 +128,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
     final auth = context.read<AuthProvider>();
     final mantenimientoProv = context.read<MantenimientoProvider>();
 
-    if (!_formKey.currentState!.validate()) {
-      print('DEBUG: Formulario no válido.'); // DEBUG
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     if (!auth.isAuthenticated || auth.user?.id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +150,6 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
       return;
     }
 
-    // Validación de fecha de mantenimiento
     if (_selectedMaintenanceDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -147,11 +167,8 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
       'kilometraje': int.tryParse(_kilometrajeController.text.trim()) ?? 0,
       'descripcion': _descripcionController.text.trim(),
       'costo': double.tryParse(_costoController.text.trim()) ?? 0.0,
-      // 'fechaVencimiento' puede ser null, lo cual es manejado
       'fechaVencimiento': _selectedNextMaintenanceDate?.toIso8601String(),
     };
-
-    print('DEBUG: Datos a enviar: $data'); // DEBUG
 
     MultipartFile? facturaMultipartFile;
     if (_selectedInvoiceXFile != null) {
@@ -159,9 +176,6 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
         _selectedInvoiceXFile!.path,
         filename: _selectedInvoiceXFile!.name,
       );
-      print('DEBUG: Archivo de factura seleccionado: ${_selectedInvoiceXFile!.name}'); // DEBUG
-    } else {
-      print('DEBUG: No se seleccionó archivo de factura.'); // DEBUG
     }
 
     showDialog(
@@ -171,22 +185,25 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
     );
 
     try {
-      await mantenimientoProv.createMantenimiento(data, facturaFile: facturaMultipartFile);
-      Navigator.of(context).pop();
+      await mantenimientoProv.updateMantenimiento(
+        widget.maintenance.id,
+        data,
+        facturaFile: facturaMultipartFile,
+      );
+      Navigator.of(context).pop(); // Dismiss loading
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Mantenimiento agregado exitosamente!'),
+          content: Text('Mantenimiento actualizado exitosamente!'),
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.of(context).pop(); // Cierra la vista de agregar mantenimiento
+      Navigator.of(context).pop(); // Close the view
     } catch (e) {
-      Navigator.of(context).pop(); // Cierra el indicador de carga
-      print('DEBUG: Error en createMantenimiento: $e'); // DEBUG
+      Navigator.of(context).pop(); // Dismiss loading on error
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al guardar mantenimiento: ${mantenimientoProv.errorMessage ?? e.toString()}'),
+          content: Text('Error al actualizar mantenimiento: ${mantenimientoProv.errorMessage ?? e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
@@ -202,7 +219,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Agregar Mantenimiento'),
+        title: const Text('Editar Mantenimiento'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -245,6 +262,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     validator: (value) => value == null ? 'Selecciona un vehículo' : null,
                   ),
                   const SizedBox(height: 16),
+
                   // CAMPO DE FECHA DE MANTENIMIENTO
                   GestureDetector(
                     onTap: () => _pickDate(
@@ -261,7 +279,6 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                         controller: _maintenanceDateController, // ASIGNAR CONTROLADOR
                         decoration: InputDecoration(
                           labelText: 'Fecha del Mantenimiento',
-                          // Ya no necesitas hintText dinámico aquí
                           border: _inputBorder(),
                           focusedBorder: _inputBorder(),
                           suffixIcon: const Icon(Icons.calendar_today),
@@ -271,6 +288,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
                   // CAMPO DE PRÓXIMO MANTENIMIENTO (OPCIONAL)
                   GestureDetector(
                     onTap: () => _pickDate(
@@ -287,7 +305,6 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                         controller: _nextMaintenanceDateController, // ASIGNAR CONTROLADOR
                         decoration: InputDecoration(
                           labelText: 'Próximo Mantenimiento (Opcional)',
-                          // Ya no necesitas hintText dinámico aquí
                           border: _inputBorder(),
                           focusedBorder: _inputBorder(),
                           suffixIcon: IconButton(
@@ -304,6 +321,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     ),
                   ),
                   const SizedBox(height: 16),
+
                   DropdownButtonFormField<String>(
                     decoration: InputDecoration(
                       labelText: 'Tipo de Mantenimiento',
@@ -326,6 +344,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     validator: (value) => value == null || value.isEmpty ? 'Obligatorio' : null,
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _descripcionController,
                     decoration: InputDecoration(
@@ -338,6 +357,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     maxLines: 3,
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _costoController,
                     decoration: InputDecoration(
@@ -356,6 +376,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   TextFormField(
                     controller: _kilometrajeController,
                     decoration: InputDecoration(
@@ -374,19 +395,37 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                     },
                   ),
                   const SizedBox(height: 16),
+
                   ListTile(
                     leading: const Icon(Icons.attach_file),
                     title: Text(
                       _selectedInvoiceXFile != null
                           ? 'Archivo seleccionado: ${_selectedInvoiceXFile!.name}'
-                          : 'Seleccionar factura (Opcional)',
+                          : (_existingInvoiceUrl != null && _existingInvoiceUrl!.isNotEmpty
+                                  ? 'Factura existente'
+                                  : 'Seleccionar factura (Opcional)'),
                     ),
-                    trailing: IconButton(
-                      icon: Icon(Icons.upload_file, color: Theme.of(context).primaryColor),
-                      onPressed: _pickInvoiceFile,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_existingInvoiceUrl != null && _existingInvoiceUrl!.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.visibility),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Funcionalidad de ver factura no implementada.')),
+                              );
+                            },
+                          ),
+                        IconButton(
+                          icon: Icon(Icons.upload_file, color: Theme.of(context).primaryColor),
+                          onPressed: _pickInvoiceFile,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
+
                   ElevatedButton(
                     onPressed: isLoadingMantenimiento ? null : _submit,
                     style: ElevatedButton.styleFrom(
@@ -402,7 +441,7 @@ class _AddMaintenanceViewState extends State<AddMaintenanceView> {
                             width: 24,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Guardar Mantenimiento', style: TextStyle(fontSize: 16)),
+                        : const Text('Actualizar Mantenimiento', style: TextStyle(fontSize: 16)),
                   ),
                 ],
               ),

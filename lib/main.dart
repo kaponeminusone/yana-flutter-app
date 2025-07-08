@@ -1,12 +1,17 @@
 // lib/main.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:yana/providers/auth_provider.dart';
 import 'package:yana/providers/mantenimiento_provider.dart';
+import 'package:yana/providers/obligacion_legal_provider.dart';
+import 'package:yana/providers/report_provider.dart';
 import 'package:yana/repository/auth_repository.dart';
 import 'package:yana/repository/mantenimiento_repository.dart';
 import 'package:yana/services/auth_service.dart';
@@ -14,6 +19,8 @@ import 'package:yana/services/auth_service.dart';
 import 'package:yana/providers/vehiculo_provider.dart';
 import 'package:yana/repository/vehiculo_repository.dart';
 import 'package:yana/services/mantenimiento_service.dart';
+import 'package:yana/services/obligacion_legal_service.dart';
+import 'package:yana/services/reporte_service.dart';
 import 'package:yana/services/vehiculo_service.dart';
 
 import 'package:yana/views/authentication/login_view.dart';
@@ -163,6 +170,23 @@ void main() async {
             Provider.of<MantenimientoRepository>(context, listen: false),
           ),
         ),
+
+        // --- Nuevos Proveedores para Obligación Legal ---
+        Provider<ObligacionLegalService>(
+          create: (context) => ObligacionLegalService(context.read<Dio>()),
+        ),
+        ChangeNotifierProvider<ObligacionLegalProvider>(
+          create: (context) => ObligacionLegalProvider(
+            context.read<ObligacionLegalService>(),
+          ),
+        ),
+        // --- Nuevos Proveedores para Reporte ---
+        Provider<ReporteService>(
+          create: (context) => ReporteService(context.read<Dio>()),
+        ),
+        ChangeNotifierProvider<ReporteProvider>(
+          create: (context) => ReporteProvider(context.read<ReporteService>()),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -195,8 +219,31 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Yana App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        // Configura el tema para usar un color azul como color principal
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue.shade700),
         useMaterial3: true,
+        // Puedes añadir más configuraciones aquí para un control más fino
+        appBarTheme: AppBarTheme(
+          backgroundColor: Colors.blue.shade700, // Color de fondo del AppBar
+          foregroundColor: Colors.white, // Color del texto y los iconos en el AppBar
+          iconTheme: const IconThemeData(color: Colors.white), // Color de los iconos en el AppBar
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade700, // Color de fondo de los botones elevados
+            foregroundColor: Colors.white, // Color del texto de los botones elevados
+          ),
+        ),
+        // Aquí puedes seguir configurando otros elementos del tema para que sigan el azul
+        // Por ejemplo, para los íconos de la barra de navegación inferior (BottomNavigationBar)
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          selectedItemColor: Colors.blue.shade700, // Color del ícono seleccionado
+          unselectedItemColor: Colors.grey, // Color del ícono no seleccionado
+        ),
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
+          backgroundColor: Colors.blue.shade700, // Color del FAB
+          foregroundColor: Colors.white, // Color del icono del FAB
+        ),
       ),
       debugShowCheckedModeBanner: false,
       home: Builder(
