@@ -1,4 +1,3 @@
-// lib/models/obligacion_legal_model.dart
 import 'package:yana/models/vehiculo_model.dart';
 import 'package:intl/intl.dart';
 
@@ -8,7 +7,8 @@ class ObligacionLegalModel {
   final String tipo;
   final String? descripcion;
   final DateTime? fechaVencimiento;
-  final String? archivoPath; // *** CAMBIO: Usar archivoPath para que coincida con la API DOCS ***
+  // CAMBIO CLAVE: Cambiar de 'archivoPath' a 'documentoPath'
+  final String? documentoPath; 
   final String vehiculoId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -20,7 +20,8 @@ class ObligacionLegalModel {
     required this.tipo,
     this.descripcion,
     this.fechaVencimiento,
-    this.archivoPath, // *** CAMBIO ***
+    // CAMBIO CLAVE: Cambiar de 'archivoPath' a 'documentoPath'
+    this.documentoPath, 
     required this.vehiculoId,
     this.createdAt,
     this.updatedAt,
@@ -29,14 +30,15 @@ class ObligacionLegalModel {
 
   factory ObligacionLegalModel.fromJson(Map<String, dynamic> json) {
     return ObligacionLegalModel(
-      id: json['id'] as String, // Asegurar el casteo explícito
+      id: json['id'] as String,
       nombre: json['nombre'] as String,
       tipo: json['tipo'] as String,
-      descripcion: json['descripcion'] as String?, // Usar as String? para anulables
+      descripcion: json['descripcion'] as String?,
       fechaVencimiento: json['fechaVencimiento'] != null
-          ? DateTime.parse(json['fechaVencimiento'] as String) // Asegurar casteo
+          ? DateTime.parse(json['fechaVencimiento'] as String)
           : null,
-      archivoPath: json['archivoPath'] as String?, // *** CAMBIO: Usar archivoPath para leer del JSON ***
+      // CAMBIO CLAVE: Leer 'documentoPath' del JSON
+      documentoPath: json['documentoPath'] as String?, 
       vehiculoId: json['vehiculoId'] as String,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
@@ -45,7 +47,7 @@ class ObligacionLegalModel {
           ? DateTime.parse(json['updatedAt'] as String)
           : null,
       vehiculo: json['vehiculo'] != null
-          ? VehiculoModel.fromJson(json['vehiculo'] as Map<String, dynamic>) // Asegurar casteo
+          ? VehiculoModel.fromJson(json['vehiculo'] as Map<String, dynamic>)
           : null,
     );
   }
@@ -56,24 +58,25 @@ class ObligacionLegalModel {
       'nombre': nombre,
       'tipo': tipo,
       'descripcion': descripcion,
-      'fechaVencimiento': fechaVencimiento?.toIso8601String().split('T')[0], // Formato a 'YYYY-MM-DD'
-      'archivoPath': archivoPath, // *** CAMBIO: Usar archivoPath para enviar al JSON ***
+      'fechaVencimiento': fechaVencimiento?.toIso8601String().split('T')[0],
+      // CAMBIO CLAVE: Enviar 'documentoPath' en el JSON
+      'documentoPath': documentoPath, 
       'vehiculoId': vehiculoId,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
-      // 'vehiculo': vehiculo?.toJson(), // No suele enviarse el objeto completo del vehículo al actualizar/crear una obligación
     };
   }
 
-  // Ayuda para mostrar la fecha formateada
   String get formattedFechaVencimiento {
     if (fechaVencimiento == null) return 'N/A';
-    // *** CAMBIO: Formato solo de fecha para DATEONLY ***
-    return DateFormat('dd MMMM yyyy', 'es').format(fechaVencimiento!);
+    return DateFormat('dd MMMM yyyy', 'es').format(fechaVencimiento!); // Asegúrate de que 'yyyy' está si quieres el año completo
   }
 
   bool get isVencida {
-    if (fechaVencimiento == null) return false; // O el comportamiento que prefieras para nulos
-    return fechaVencimiento!.isBefore(DateTime.now());
+    if (fechaVencimiento == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expirationDate = DateTime(fechaVencimiento!.year, fechaVencimiento!.month, fechaVencimiento!.day);
+    return expirationDate.isBefore(today);
   }
 }

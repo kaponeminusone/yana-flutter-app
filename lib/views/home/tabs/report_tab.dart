@@ -15,7 +15,7 @@ class ReportsTab extends StatefulWidget {
 }
 
 class _ReportsTabState extends State<ReportsTab> {
-  // Controllers for filter text fields
+  // Controllers for filter text fields (still needed for the placeholder filter form)
   final TextEditingController _mantenimientoTipoController = TextEditingController();
   final TextEditingController _placaController = TextEditingController();
   final TextEditingController _marcaController = TextEditingController();
@@ -25,12 +25,15 @@ class _ReportsTabState extends State<ReportsTab> {
   DateTime? _fechaFin;
   bool? _obligacionVigente; // null for 'all', true for 'current', false for 'expired'
 
+  // Flag to indicate if manual filters have been applied (even if not functional)
+  bool _manualFiltersApplied = false;
+
   @override
   void initState() {
     super.initState();
-    // Fetch reports when the widget is first initialized.
+    // Fetch the automatic report when the widget is first initialized.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchReports();
+      _fetchAutomaticReport();
     });
   }
 
@@ -43,34 +46,33 @@ class _ReportsTabState extends State<ReportsTab> {
     super.dispose();
   }
 
-  /// Fetches reports from the `ReporteProvider` based on the provided filters.
-  ///
-  /// If no parameters are provided, it uses the current values from the
-  /// controllers and state variables.
-  Future<void> _fetchReports({
-    String? mantenimientoTipo,
-    DateTime? fechaInicio,
-    DateTime? fechaFin,
-    bool? obligacionVigente,
-    String? placa,
-    String? marca,
-  }) async {
-    // Determine which filter values to use: provided parameters or current state.
-    final currentMantenimientoTipo = mantenimientoTipo ?? (_mantenimientoTipoController.text.isEmpty ? null : _mantenimientoTipoController.text);
-    final currentPlaca = placa ?? (_placaController.text.isEmpty ? null : _placaController.text);
-    final currentMarca = marca ?? (_marcaController.text.isEmpty ? null : _marcaController.text);
-    final currentFechaInicio = fechaInicio ?? _fechaInicio;
-    final currentFechaFin = fechaFin ?? _fechaFin;
-    final currentObligacionVigente = obligacionVigente ?? _obligacionVigente;
+  /// Fetches the automatic report from the `ReporteProvider`.
+  Future<void> _fetchAutomaticReport() async {
+    // Reset manual filter state when fetching automatic report
+    setState(() {
+      _manualFiltersApplied = false;
+      _mantenimientoTipoController.clear();
+      _placaController.clear();
+      _marcaController.clear();
+      _fechaInicio = null;
+      _fechaFin = null;
+      _obligacionVigente = null;
+    });
+    await context.read<ReporteProvider>().loadAutomatico();
+  }
 
-    await context.read<ReporteProvider>().loadManual(
-          mantenimientoTipo: currentMantenimientoTipo,
-          fechaInicio: currentFechaInicio,
-          fechaFin: currentFechaFin,
-          obligacionVigente: currentObligacionVigente,
-          placa: currentPlaca,
-          marca: currentMarca,
-        );
+  /// This method is a placeholder for future manual filtering.
+  /// It will not call the actual API for now.
+  Future<void> _applyManualFiltersPlaceholder() async {
+    // Set a flag to indicate that "filters" have been "applied"
+    setState(() {
+      _manualFiltersApplied = true;
+      // You could potentially filter the existing automatic report data here
+      // if you want to implement client-side filtering without new API calls.
+      // For now, we'll just show the placeholder message.
+    });
+    // Do NOT call context.read<ReporteProvider>().loadManual() here
+    // as per the requirement that it "no deberas llamar para la peticion ya que no funciona".
   }
 
   /// Displays a modal bottom sheet with filter options for reports.
@@ -95,10 +97,18 @@ class _ReportsTabState extends State<ReportsTab> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Filtrar Reportes',
+                      'Filtrar Reportes (Funcionalidad Manual Deshabilitada)',
                       style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'La búsqueda manual por filtros está deshabilitada temporalmente. Actualmente solo se muestra el reporte automático de su perfil.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600], fontStyle: FontStyle.italic),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
+                    // All filter fields are here but their action button will not trigger an API call.
                     TextField(
                       controller: _placaController,
                       decoration: const InputDecoration(
@@ -106,6 +116,7 @@ class _ReportsTabState extends State<ReportsTab> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.credit_card),
                       ),
+                      enabled: false, // Disable interaction
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -115,6 +126,7 @@ class _ReportsTabState extends State<ReportsTab> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.directions_car),
                       ),
+                      enabled: false, // Disable interaction
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -124,6 +136,7 @@ class _ReportsTabState extends State<ReportsTab> {
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.build),
                       ),
+                      enabled: false, // Disable interaction
                     ),
                     const SizedBox(height: 16),
                     _buildDatePickerField(
@@ -135,6 +148,7 @@ class _ReportsTabState extends State<ReportsTab> {
                           _fechaInicio = date;
                         });
                       },
+                      enabled: false, // Disable interaction
                     ),
                     const SizedBox(height: 16),
                     _buildDatePickerField(
@@ -146,6 +160,7 @@ class _ReportsTabState extends State<ReportsTab> {
                           _fechaFin = date;
                         });
                       },
+                      enabled: false, // Disable interaction
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<bool?>(
@@ -174,6 +189,8 @@ class _ReportsTabState extends State<ReportsTab> {
                           _obligacionVigente = value;
                         });
                       },
+                      // This can remain enabled for UI interaction,
+                      // but the "Aplicar Filtros" button will ignore it.
                     ),
                     const SizedBox(height: 32),
                     Row(
@@ -190,22 +207,19 @@ class _ReportsTabState extends State<ReportsTab> {
                               _fechaFin = null;
                               _obligacionVigente = null;
                             });
-                            _fetchReports(); // Reload without filters.
+                            _fetchAutomaticReport(); // Revert to automatic report
                             Navigator.pop(context);
                           },
-                          child: const Text('Limpiar Filtros'),
+                          child: const Text('Limpiar Filtros y Recargar Automático'),
                         ),
                         ElevatedButton(
+                          // This button now only "simulates" applying filters
+                          // but does not trigger a real API call.
                           onPressed: () {
-                            // Apply filters using the current values from controllers/state.
-                            setState(() {
-                              // Ensure the main ReportsTab state reflects the controller values
-                              // before calling _fetchReports without explicit parameters.
-                            });
-                            _fetchReports();
+                            _applyManualFiltersPlaceholder();
                             Navigator.pop(context); // Close bottom sheet.
                           },
-                          child: const Text('Aplicar Filtros'),
+                          child: const Text('Aplicar Filtros (Deshabilitado)'),
                         ),
                       ],
                     ),
@@ -228,30 +242,36 @@ class _ReportsTabState extends State<ReportsTab> {
     required String label,
     required DateTime? selectedDate,
     required ValueChanged<DateTime?> onDateSelected,
+    bool enabled = true, // Added enabled parameter
   }) {
     return InkWell(
-      onTap: () async {
-        final DateTime? pickedDate = await showDatePicker(
-          context: context,
-          initialDate: selectedDate ?? DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2101),
-        );
-        if (pickedDate != null && pickedDate != selectedDate) {
-          onDateSelected(pickedDate);
-        }
-      },
+      onTap: enabled
+          ? () async {
+              final DateTime? pickedDate = await showDatePicker(
+                context: context,
+                initialDate: selectedDate ?? DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2101),
+              );
+              if (pickedDate != null && pickedDate != selectedDate) {
+                onDateSelected(pickedDate);
+              }
+            }
+          : null, // Disable onTap if not enabled
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
           border: const OutlineInputBorder(),
           prefixIcon: const Icon(Icons.calendar_today),
+          enabled: enabled, // Apply enabled state to decorator
         ),
         child: Text(
           selectedDate != null
               ? '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'
               : 'Seleccionar fecha',
-          style: Theme.of(context).textTheme.bodyLarge,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: enabled ? null : Theme.of(context).disabledColor, // Dim text if disabled
+              ),
         ),
       ),
     );
@@ -449,10 +469,13 @@ class _ReportsTabState extends State<ReportsTab> {
     }
 
     final hasError = reportProvider.error != null;
-    final items = hasError ? _fakeReporteItems() : reportProvider.items;
+    // Display actual items if no error and not showing placeholder for manual filters
+    // Otherwise, show fake items if there's an error or if manual filters were "applied"
+    // even if not functional.
+    final items = (hasError || _manualFiltersApplied) ? _fakeReporteItems() : reportProvider.items;
 
     // Display a message when no reports are found and there's no error.
-    if (items.isEmpty && !hasError) {
+    if (items.isEmpty && !hasError && !_manualFiltersApplied) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -460,38 +483,29 @@ class _ReportsTabState extends State<ReportsTab> {
             Icon(Icons.description_outlined, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'No hay reportes disponibles con estos filtros.',
+              'No hay reportes automáticos disponibles.',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Prueba a ajustar tus criterios de búsqueda o recarga los datos.',
+              'Asegúrate de tener un vehículo asociado a tu perfil o intenta recargar los datos.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
-                // Clear all filters and reload.
-                _mantenimientoTipoController.clear();
-                _placaController.clear();
-                _marcaController.clear();
-                setState(() {
-                  _fechaInicio = null;
-                  _fechaFin = null;
-                  _obligacionVigente = null;
-                });
-                _fetchReports();
+                _fetchAutomaticReport(); // Reload only the automatic report.
               },
               icon: const Icon(Icons.refresh),
-              label: const Text('Recargar Todo'),
+              label: const Text('Recargar Reporte Automático'),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _showFilterForm,
+              onPressed: _showFilterForm, // Still show the filter form
               icon: const Icon(Icons.filter_alt),
-              label: const Text('Aplicar Otros Filtros'),
+              label: const Text('Ver Filtros (Deshabilitado)'),
             ),
           ],
         ),
@@ -500,7 +514,7 @@ class _ReportsTabState extends State<ReportsTab> {
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: _fetchReports, // Allows pull-to-refresh to fetch data.
+        onRefresh: _fetchAutomaticReport, // Pull-to-refresh calls the automatic report
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(), // Enable pull-to-refresh
           slivers: [
@@ -512,31 +526,27 @@ class _ReportsTabState extends State<ReportsTab> {
                       color: Theme.of(context).colorScheme.error.withOpacity(0.1),
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                       child: Text(
-                        'Error al cargar datos: ${reportProvider.error}. Mostrando información de ejemplo.',
+                        'Error al cargar reporte automático: ${reportProvider.error}. Mostrando información de ejemplo.',
                         style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                     )
                   : const SizedBox.shrink(),
             ),
-            // Optional: Indicator for active filters.
-            if (_mantenimientoTipoController.text.isNotEmpty ||
-                _placaController.text.isNotEmpty ||
-                _marcaController.text.isNotEmpty ||
-                _fechaInicio != null ||
-                _fechaFin != null ||
-                _obligacionVigente != null)
-              SliverToBoxAdapter(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Filtros aplicados. Pulsa el botón de filtro para ver/modificar.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700], fontStyle: FontStyle.italic),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
+            // Message for when manual filters are "applied" (placeholder)
+            SliverToBoxAdapter(
+              child: _manualFiltersApplied
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'La funcionalidad de filtros manuales está deshabilitada temporalmente. Se muestra un reporte de ejemplo. Pulsa "Limpiar Filtros" para ver el reporte automático.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.orange[700], fontStyle: FontStyle.italic),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
             // Display the list of reports.
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -557,7 +567,7 @@ class _ReportsTabState extends State<ReportsTab> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showFilterForm,
-        tooltip: 'Filtrar Reportes',
+        tooltip: 'Ver Opciones de Filtro', // Changed tooltip
         child: const Icon(Icons.filter_alt),
       ),
     );

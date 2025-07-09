@@ -46,7 +46,7 @@ class _DocsViewState extends State<DocsView> {
         "tipo": "Seguro",
         "fechaEmision": "2024-01-01T00:00:00Z",
         "fechaVencimiento": "2025-01-01T00:00:00Z", // Vigente
-        "archivoPath": "documentos/dummy-soat.pdf", // Ruta relativa o solo nombre si es dummy
+        "documentoPath": "documentos/dummy-soat.pdf", // CAMBIADO: Usar documentoPath
         "costo": 500000.0,
         "notas": "Este es un documento de ejemplo SOAT. Su URL es un PDF dummy."
       }),
@@ -57,7 +57,7 @@ class _DocsViewState extends State<DocsView> {
         "tipo": "Certificado",
         "fechaEmision": "2023-03-10T00:00:00Z",
         "fechaVencimiento": "2024-03-10T00:00:00Z", // Vencida
-        "archivoPath": "documentos/dummy-tecnomecanica.pdf",
+        "documentoPath": "documentos/dummy-tecnomecanica.pdf", // CAMBIADO: Usar documentoPath
         "costo": 200000.0,
         "notas": "Este es un documento de ejemplo de Revisión. Su URL es un PDF dummy."
       }),
@@ -68,7 +68,7 @@ class _DocsViewState extends State<DocsView> {
         "tipo": "Identificación",
         "fechaEmision": "2022-05-20T00:00:00Z",
         "fechaVencimiento": null, // Sin vencimiento
-        "archivoPath": "documentos/dummy-tarjeta-propiedad.pdf",
+        "documentoPath": "documentos/dummy-tarjeta-propiedad.pdf", // CAMBIADO: Usar documentoPath
         "costo": 0.0,
         "notas": "Este es un documento de ejemplo de Tarjeta de Propiedad. Su URL es un PDF dummy."
       }),
@@ -79,7 +79,7 @@ class _DocsViewState extends State<DocsView> {
         "tipo": "Seguro",
         "fechaEmision": "2024-06-15T00:00:00Z",
         "fechaVencimiento": "2024-07-20T00:00:00Z", // Próxima a vencer
-        "archivoPath": "documentos/dummy-seguro.pdf",
+        "documentoPath": "documentos/dummy-seguro.pdf", // CAMBIADO: Usar documentoPath
         "costo": 300000.0,
         "notas": "Este es un documento de ejemplo de Seguro. Su URL es un PDF dummy."
       }),
@@ -100,9 +100,9 @@ class _DocsViewState extends State<DocsView> {
     } else {
       // Si no hay error, usa las obligaciones reales (o las pasadas al constructor)
       displayObligations = widget.obligaciones ?? obligacionProvider.obligaciones;
-      // Filtra las obligaciones reales para solo mostrar las que tienen un archivoPath
+      // Filtra las obligaciones reales para solo mostrar las que tienen un documentoPath
       displayObligations = displayObligations
-          .where((o) => o.archivoPath != null && o.archivoPath!.isNotEmpty)
+          .where((o) => o.documentoPath != null && o.documentoPath!.isNotEmpty) // CAMBIADO: Usar documentoPath
           .toList();
     }
 
@@ -170,7 +170,7 @@ class _DocsViewState extends State<DocsView> {
                       crossAxisSpacing: 16.0, // Espacio horizontal entre tarjetas
                       mainAxisSpacing: 16.0, // Espacio vertical entre tarjetas
                       childAspectRatio: 0.75, // Ajusta este valor para controlar la proporción (ancho/alto) de la tarjeta.
-                                             // 0.75 significa que el alto es ~1.33 veces el ancho.
+                                           // 0.75 significa que el alto es ~1.33 veces el ancho.
                     ),
                     itemCount: displayObligations.length,
                     itemBuilder: (context, index) {
@@ -218,7 +218,7 @@ class _DocsViewState extends State<DocsView> {
               crossAxisSpacing: 16.0, // Espacio horizontal entre tarjetas
               mainAxisSpacing: 16.0, // Espacio vertical entre tarjetas
               childAspectRatio: 0.75, // Ajusta este valor para controlar la proporción (ancho/alto) de la tarjeta.
-                                     // 0.75 significa que el alto es ~1.33 veces el ancho.
+                                           // 0.75 significa que el alto es ~1.33 veces el ancho.
             ),
             itemCount: displayObligations.length,
             itemBuilder: (context, index) {
@@ -259,15 +259,17 @@ class _DocCardState extends State<_DocCard> {
       final dio = Provider.of<Dio>(context, listen: false);
       final String baseUrl = dio.options.baseUrl;
 
-      if (widget.obligacion.archivoPath == null || widget.obligacion.archivoPath!.isEmpty) {
+      // CAMBIADO: Usar documentoPath
+      if (widget.obligacion.documentoPath == null || widget.obligacion.documentoPath!.isEmpty) {
         _showSnackBar(context, 'Este documento no tiene una URL de descarga válida.', Colors.orange);
         return;
       }
       // Construir la URL completa, manejando casos de rutas relativas/absolutas
-      if (widget.obligacion.archivoPath!.startsWith('http://') || widget.obligacion.archivoPath!.startsWith('https://')) {
-        fileUrlToDownload = widget.obligacion.archivoPath!; // Ya es una URL completa
+      // CAMBIADO: Usar documentoPath
+      if (widget.obligacion.documentoPath!.startsWith('http://') || widget.obligacion.documentoPath!.startsWith('https://')) {
+        fileUrlToDownload = widget.obligacion.documentoPath!; // Ya es una URL completa
       } else {
-        fileUrlToDownload = "$baseUrl/${widget.obligacion.archivoPath!}";
+        fileUrlToDownload = "$baseUrl/${widget.obligacion.documentoPath!}"; // CAMBIADO: Usar documentoPath
       }
     }
 
@@ -362,7 +364,7 @@ class _DocCardState extends State<_DocCard> {
   String _getFormattedDate(DateTime? date) {
     if (date == null) return 'N/A';
     // Usamos el locale 'es' para asegurar el formato de mes en español
-    return DateFormat('dd MMM yyyy', 'es').format(date);
+    return DateFormat('dd MMMM yyyy', 'es').format(date); // Agregado 'yyyy' para mostrar el año completo
   }
 
   @override
@@ -397,15 +399,15 @@ class _DocCardState extends State<_DocCard> {
                 child: Center(
                   child: _isDownloading
                       ? CircularProgressIndicator(
-                          value: _downloadProgress,
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-                        )
+                            value: _downloadProgress,
+                            strokeWidth: 2.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+                          )
                       : Icon(
-                          Icons.picture_as_pdf, // Icono de PDF
-                          size: 48, // Icono más grande para la tarjeta vertical
-                          color: Theme.of(context).primaryColor,
-                        ),
+                            Icons.picture_as_pdf, // Icono de PDF
+                            size: 48, // Icono más grande para la tarjeta vertical
+                            color: Theme.of(context).primaryColor,
+                          ),
                 ),
               ),
             ),

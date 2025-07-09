@@ -1,3 +1,4 @@
+// lib/providers/report_provider.dart
 import 'package:flutter/foundation.dart';
 import '../models/reporte_model.dart';
 import '../services/reporte_service.dart';
@@ -10,7 +11,7 @@ class ReporteProvider extends ChangeNotifier {
   bool loading = false;
   String? error;
 
-  /// Carga el reporte del propietario (usa el endpoint manual)
+  /// Carga el reporte automático
   Future<void> loadAutomatico() async {
     loading = true;
     notifyListeners();
@@ -20,7 +21,9 @@ class ReporteProvider extends ChangeNotifier {
       error = null;
     } catch (e) {
       items = [];
-      error = e.toString();
+      // Asegúrate de manejar el error de forma legible en la UI
+      error = e.toString().contains("Exception:") ? e.toString().replaceFirst("Exception: ", "") : e.toString();
+      print("Error en loadAutomatico: $error"); // Para depuración
     }
 
     loading = false;
@@ -51,7 +54,8 @@ class ReporteProvider extends ChangeNotifier {
       error = null;
     } catch (e) {
       items = [];
-      error = e.toString();
+      error = e.toString().contains("Exception:") ? e.toString().replaceFirst("Exception: ", "") : e.toString();
+      print("Error en loadManual: $error"); // Para depuración
     }
 
     loading = false;

@@ -31,7 +31,9 @@ class _VehiclesTabState extends State<VehiclesTab> {
         // Una vez que los vehículos se cargan, establece el primero como destacado
         // y carga sus obligaciones.
         if (context.read<VehiculoProvider>().vehiculos.isNotEmpty) {
-          _updateFeaturedVehiculo(context.read<VehiculoProvider>().vehiculos[0]);
+          _updateFeaturedVehiculo(
+            context.read<VehiculoProvider>().vehiculos[0],
+          );
         }
       });
     });
@@ -43,20 +45,25 @@ class _VehiclesTabState extends State<VehiclesTab> {
       _featuredVehicle = vehiculo;
     });
     // Obtener obligaciones para el vehículo seleccionado
-    final obligacionProvider = Provider.of<ObligacionLegalProvider>(context, listen: false);
+    final obligacionProvider = Provider.of<ObligacionLegalProvider>(
+      context,
+      listen: false,
+    );
     await obligacionProvider.fetchObligacionesByVehiculoId(vehiculo.id);
   }
 
   @override
   Widget build(BuildContext context) {
     final vehProv = context.watch<VehiculoProvider>();
-    final obligacionProv = context.watch<ObligacionLegalProvider>(); // Observar ObligacionLegalProvider
+    final obligacionProv = context
+        .watch<ObligacionLegalProvider>(); // Observar ObligacionLegalProvider
     final TextTheme textTheme = Theme.of(context).textTheme;
     final ColorScheme colorScheme = Theme.of(context).colorScheme;
 
-
     if (vehProv.isLoading) {
-      return Center(child: CircularProgressIndicator(color: colorScheme.primary)); // Usa primaryColor del tema
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
+      ); // Usa primaryColor del tema
     }
 
     if (vehProv.errorMessage != null) {
@@ -66,7 +73,11 @@ class _VehiclesTabState extends State<VehiclesTab> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_off, color: colorScheme.onSurfaceVariant, size: 80), // Ícono de error
+              Icon(
+                Icons.cloud_off,
+                color: colorScheme.onSurfaceVariant,
+                size: 80,
+              ), // Ícono de error
               const SizedBox(height: 24),
               Text(
                 'Parece que hay un problema de conexión o el servidor no responde.',
@@ -84,7 +95,8 @@ class _VehiclesTabState extends State<VehiclesTab> {
                   color: textTheme.bodySmall?.color,
                 ),
               ),
-              if (vehProv.errorMessage != null && vehProv.errorMessage!.isNotEmpty)
+              if (vehProv.errorMessage != null &&
+                  vehProv.errorMessage!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 12.0),
                   child: Text(
@@ -96,15 +108,20 @@ class _VehiclesTabState extends State<VehiclesTab> {
                   ),
                 ),
               const SizedBox(height: 30),
-              ElevatedButton.icon( // Usar ElevatedButton.icon para un botón más visual
+              ElevatedButton.icon(
+                // Usar ElevatedButton.icon para un botón más visual
                 onPressed: () {
                   vehProv.clearErrorMessage();
                   vehProv.fetchVehiculos();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary, // Usa primaryColor del tema
+                  backgroundColor:
+                      colorScheme.primary, // Usa primaryColor del tema
                   foregroundColor: colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -129,7 +146,11 @@ class _VehiclesTabState extends State<VehiclesTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.directions_car_outlined, size: 80, color: colorScheme.outlineVariant),
+            Icon(
+              Icons.directions_car_outlined,
+              size: 80,
+              color: colorScheme.outlineVariant,
+            ),
             const SizedBox(height: 16),
             Text(
               'No tienes vehículos registrados.',
@@ -156,11 +177,14 @@ class _VehiclesTabState extends State<VehiclesTab> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateFeaturedVehiculo(vehicles[0]);
       });
-      return Center(child: CircularProgressIndicator(color: colorScheme.primary)); // Usa primaryColor del tema
+      return Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
+      ); // Usa primaryColor del tema
     }
 
     // Si _featuredVehicle no es nulo, obtenemos sus obligaciones cargadas por el provider
-    final List<ObligacionLegalModel> featuredVehicleObligations = obligacionProv.obligaciones;
+    final List<ObligacionLegalModel> featuredVehicleObligations =
+        obligacionProv.obligaciones;
 
     return CustomScrollView(
       slivers: [
@@ -184,7 +208,8 @@ class _VehiclesTabState extends State<VehiclesTab> {
             maxHeight: 180,
             child: _DocsInfoSection(
               vehicle: _featuredVehicle!, // Pasa el vehículo destacado real
-              obligaciones: featuredVehicleObligations, // Pasa las obligaciones reales
+              obligaciones:
+                  featuredVehicleObligations, // Pasa las obligaciones reales
               areDocsLoading: obligacionProv.isLoading,
               docsErrorMessage: obligacionProv.errorMessage,
             ),
@@ -193,164 +218,189 @@ class _VehiclesTabState extends State<VehiclesTab> {
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final v = vehicles[index];
-                final isSelected = v.id == _featuredVehicle?.id;
-                final icon = v.modelo.toLowerCase().contains('moto')
-                    ? Icons.two_wheeler
-                    : Icons.directions_car;
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final v = vehicles[index];
+              final isSelected = v.id == _featuredVehicle?.id;
+              final icon = v.modelo.toLowerCase().contains('moto')
+                  ? Icons.two_wheeler
+                  : Icons.directions_car;
 
-                return Column(
-                  children: [
-                    Dismissible(
-                      key: ValueKey(v.id), // Clave única para el Dismissible
-                      direction: DismissDirection.endToStart, // Solo de derecha a izquierda
-                      background: Container(
-                        color: colorScheme.error, // Usa el color de error del tema
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Icon(Icons.delete, color: colorScheme.onError, size: 36),
+              return Column(
+                children: [
+                  Dismissible(
+                    key: ValueKey(v.id), // Clave única para el Dismissible
+                    direction: DismissDirection
+                        .endToStart, // Solo de derecha a izquierda
+                    background: Container(
+                      color:
+                          colorScheme.error, // Usa el color de error del tema
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Icon(
+                        Icons.delete,
+                        color: colorScheme.onError,
+                        size: 36,
                       ),
-                      confirmDismiss: (direction) async {
-                        return await showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return Localizations.override( // Para asegurar que las fechas se formateen correctamente
-                              context: context,
-                              locale: const Locale('es', 'ES'), // O la configuración regional que desees
-                              child: Builder(
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title: Text(
-                                      'Confirmar eliminación',
-                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    content: Text(
-                                      '¿Estás seguro de que quieres eliminar este vehículo?',
-                                      style: Theme.of(context).textTheme.bodyMedium,
-                                    ),
-                                    actions: <Widget>[
-                                      TextButton(
-                                        onPressed: () => Navigator.of(context).pop(false), // No eliminar
-                                        child: Text(
-                                          'Cancelar',
-                                          style: TextStyle(color: Theme.of(context).colorScheme.primary),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.of(context).pop(true), // Eliminar
-                                        child: Text(
-                                          'Eliminar',
-                                          style: TextStyle(color: Theme.of(context).colorScheme.error),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                }
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      onDismissed: (direction) async {
-                        // Eliminar el vehículo después de la confirmación
-                        await vehProv.deleteVehiculo(v.id);
-                        if (_featuredVehicle?.id == v.id) {
-                          // Si el vehículo eliminado era el destacado, intenta seleccionar el primero de la lista restante
-                          // o establece a null si no quedan vehículos.
-                          if (vehProv.vehiculos.isNotEmpty) {
-                            _updateFeaturedVehiculo(vehProv.vehiculos[0]);
-                          } else {
-                            setState(() {
-                              _featuredVehicle = null;
-                            });
-                          }
-                        }
-                        // Opcional: mostrar un SnackBar de confirmación
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Vehículo ${v.marca} ${v.modelo} eliminado',
-                              style: textTheme.bodyMedium,
+                    ),
+                    confirmDismiss: (direction) async {
+                      return await showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          // ELIMINA Localizations.override y Builder aquí
+                          return AlertDialog(
+                            title: Text(
+                              'Confirmar eliminación',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
                             ),
-                          ),
-                        );
-                      },
-                      child: InkWell(
-                        onTap: () => _updateFeaturedVehiculo(v),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: Row(
-                            children: [
-                              Icon(icon, size: 32, color: colorScheme.onSurfaceVariant),
-                              const SizedBox(width: 24),
-                              SizedBox(
-                                height: 40, // Altura del divisor vertical
-                                child: VerticalDivider(thickness: 1, color: colorScheme.outlineVariant),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${v.marca} ${v.modelo}',
-                                      style: textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Placa: ${v.placa}',
-                                      style: textTheme.bodyMedium?.copyWith(
-                                        color: textTheme.bodyMedium?.color,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Año: ${v.year}',
-                                      style: textTheme.bodySmall?.copyWith(
-                                        color: textTheme.bodySmall?.color,
-                                      ),
-                                    ),
-                                  ],
+                            content: Text(
+                              '¿Estás seguro de que quieres eliminar este vehículo?',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => Navigator.of(
+                                  context,
+                                ).pop(false), // No eliminar
+                                child: Text(
+                                  'Cancelar',
+                                  style: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
                                 ),
                               ),
-                              if (isSelected) ...[
-                                Icon(Icons.check_circle, color: colorScheme.primary),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: Icon(Icons.edit, color: colorScheme.primary),
-                                  onPressed: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => EditVehicleView(vehicle: v),
-                                      ),
-                                    ).then((result) {
-                                      if (result == true) {
-                                        vehProv.fetchVehiculos();
-                                        if (_featuredVehicle != null) {
-                                          _updateFeaturedVehiculo(_featuredVehicle!);
-                                        }
-                                      }
-                                    });
-                                  },
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true), // Eliminar
+                                child: Text(
+                                  'Eliminar',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                                 ),
-                              ],
+                              ),
                             ],
+                          );
+                        },
+                      );
+                    },
+                    onDismissed: (direction) async {
+                      // Eliminar el vehículo después de la confirmación
+                      await vehProv.deleteVehiculo(v.id);
+                      if (_featuredVehicle?.id == v.id) {
+                        // Si el vehículo eliminado era el destacado, intenta seleccionar el primero de la lista restante
+                        // o establece a null si no quedan vehículos.
+                        if (vehProv.vehiculos.isNotEmpty) {
+                          _updateFeaturedVehiculo(vehProv.vehiculos[0]);
+                        } else {
+                          setState(() {
+                            _featuredVehicle = null;
+                          });
+                        }
+                      }
+                      // Opcional: mostrar un SnackBar de confirmación
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Vehículo ${v.marca} ${v.modelo} eliminado',
+                            style: textTheme.bodyMedium,
                           ),
+                        ),
+                      );
+                    },
+                    child: InkWell(
+                      onTap: () => _updateFeaturedVehiculo(v),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              icon,
+                              size: 32,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 24),
+                            SizedBox(
+                              height: 40, // Altura del divisor vertical
+                              child: VerticalDivider(
+                                thickness: 1,
+                                color: colorScheme.outlineVariant,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${v.marca} ${v.modelo}',
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Placa: ${v.placa}',
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: textTheme.bodyMedium?.color,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Año: ${v.year}',
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: textTheme.bodySmall?.color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isSelected) ...[
+                              Icon(
+                                Icons.check_circle,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.edit,
+                                  color: colorScheme.primary,
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              EditVehicleView(vehicle: v),
+                                        ),
+                                      )
+                                      .then((result) {
+                                        if (result == true) {
+                                          vehProv.fetchVehiculos();
+                                          if (_featuredVehicle != null) {
+                                            _updateFeaturedVehiculo(
+                                              _featuredVehicle!,
+                                            );
+                                          }
+                                        }
+                                      });
+                                },
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                    Divider(height: 1, color: colorScheme.outlineVariant), // Divisor entre ítems
-                  ],
-                );
-              },
-              childCount: vehicles.length,
-            ),
+                  ),
+                  Divider(
+                    height: 1,
+                    color: colorScheme.outlineVariant,
+                  ), // Divisor entre ítems
+                ],
+              );
+            }, childCount: vehicles.length),
           ),
         ),
       ],
@@ -377,8 +427,10 @@ class _DocsHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      SizedBox.expand(child: child);
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => SizedBox.expand(child: child);
 
   @override
   bool shouldRebuild(covariant _DocsHeaderDelegate oldDelegate) {
@@ -391,7 +443,8 @@ class _DocsHeaderDelegate extends SliverPersistentHeaderDelegate {
 // _DocsInfoSection (Anteriormente _DocsCard - REDISEÑADO)
 class _DocsInfoSection extends StatelessWidget {
   final VehiculoModel vehicle;
-  final List<ObligacionLegalModel> obligaciones; // Ahora recibe ObligacionLegalModel
+  final List<ObligacionLegalModel>
+  obligaciones; // Ahora recibe ObligacionLegalModel
   final bool areDocsLoading;
   final String? docsErrorMessage;
 
@@ -415,11 +468,12 @@ class _DocsInfoSection extends StatelessWidget {
     // Considerar que `archivoPath` podría ser una URL o un path local.
     // La lógica de `null` vs `isEmpty` depende de cómo manejas los paths.
     // Asumiré que `null` o una cadena vacía significa que falta el archivo.
-    if (obligacion.archivoPath == null || obligacion.archivoPath!.isEmpty) {
+    if (obligacion.documentoPath == null || obligacion.documentoPath!.isEmpty) {
       return Colors.orange; // Falta el archivo
     }
     if (obligacion.fechaVencimiento == null) {
-      return Colors.yellow; // Sin fecha de vencimiento (puede indicar que es permanente o indefinido)
+      return Colors
+          .yellow; // Sin fecha de vencimiento (puede indicar que es permanente o indefinido)
     }
     if (obligacion.fechaVencimiento!.isBefore(DateTime.now())) {
       return Colors.red; // Vencido
@@ -451,11 +505,13 @@ class _DocsInfoSection extends StatelessWidget {
       'Técnico-Mecánica', // O 'Tecno', 'TecnoMecanica'
       'Propiedad', // O 'Tarjeta de Propiedad'
       'Seguro', // O 'SeguroContractual'
-      'Licencia' // O 'Licencia de Transito'
+      'Licencia', // O 'Licencia de Transito'
     ];
 
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor, // Usa el color de fondo del Scaffold
+      color: Theme.of(
+        context,
+      ).scaffoldBackgroundColor, // Usa el color de fondo del Scaffold
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,21 +548,28 @@ class _DocsInfoSection extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.arrow_forward_ios, color: colorScheme.primary), // Usa primaryColor
+                icon: Icon(
+                  Icons.arrow_forward_ios,
+                  color: colorScheme.primary,
+                ), // Usa primaryColor
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DocsView(
-                        vehiculo: vehicle,
-                        obligaciones: obligaciones,
-                      ),
-                    ),
-                  ).then((result) {
-                    if (result == true) {
-                      Provider.of<ObligacionLegalProvider>(context, listen: false)
-                          .fetchObligacionesByVehiculoId(vehicle.id);
-                    }
-                  });
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => DocsView(
+                            vehiculo: vehicle,
+                            obligaciones: obligaciones,
+                          ),
+                        ),
+                      )
+                      .then((result) {
+                        if (result == true) {
+                          Provider.of<ObligacionLegalProvider>(
+                            context,
+                            listen: false,
+                          ).fetchObligacionesByVehiculoId(vehicle.id);
+                        }
+                      });
                 },
               ),
             ],
@@ -523,7 +586,9 @@ class _DocsInfoSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (areDocsLoading)
-            Center(child: CircularProgressIndicator(color: colorScheme.primary)) // Usa primaryColor
+            Center(
+              child: CircularProgressIndicator(color: colorScheme.primary),
+            ) // Usa primaryColor
           else if (docsErrorMessage != null)
             Expanded(
               child: SingleChildScrollView(
@@ -532,7 +597,9 @@ class _DocsInfoSection extends StatelessWidget {
                   child: Text(
                     'Error al cargar documentos: $docsErrorMessage',
                     textAlign: TextAlign.center,
-                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.error,
+                    ),
                   ),
                 ),
               ),
@@ -582,8 +649,12 @@ class _DocTile extends StatelessWidget {
   final String name;
   final Color dotColor;
   final String? dueDate;
-  const _DocTile({Key? key, required this.name, required this.dotColor, this.dueDate})
-      : super(key: key);
+  const _DocTile({
+    Key? key,
+    required this.name,
+    required this.dotColor,
+    this.dueDate,
+  }) : super(key: key);
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -594,7 +665,11 @@ class _DocTile extends StatelessWidget {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            Icon(Icons.description, size: 32, color: colorScheme.primary), // Icono azul del tema
+            Icon(
+              Icons.description,
+              size: 32,
+              color: colorScheme.primary,
+            ), // Icono azul del tema
             Positioned(
               right: -2,
               bottom: -2,
@@ -605,8 +680,9 @@ class _DocTile extends StatelessWidget {
                   color: dotColor,
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      width: 1.5),
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -615,9 +691,14 @@ class _DocTile extends StatelessWidget {
         const SizedBox(height: 4),
         Text(name, style: textTheme.bodySmall), // Usa bodySmall del tema
         if (dueDate != null)
-          Text(dueDate!,
-              style: textTheme.bodySmall?.copyWith(
-                  color: dotColor == Colors.red ? colorScheme.error : textTheme.bodySmall?.color)), // Usa error del tema
+          Text(
+            dueDate!,
+            style: textTheme.bodySmall?.copyWith(
+              color: dotColor == Colors.red
+                  ? colorScheme.error
+                  : textTheme.bodySmall?.color,
+            ),
+          ), // Usa error del tema
       ],
     );
   }
