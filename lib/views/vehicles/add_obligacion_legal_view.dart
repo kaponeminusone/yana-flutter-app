@@ -168,7 +168,7 @@ class _AddObligacionLegalViewState extends State<AddObligacionLegalView> {
 
     try {
       // El servicio espera filePath, así que solo pasamos la ruta si existe
-      await obligacionLegalProv.createObligacionLegal(data, filePath: filePath);
+      await obligacionLegalProv.createObligacionLegal(data);
       Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(

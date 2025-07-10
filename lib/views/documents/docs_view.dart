@@ -1,3 +1,4 @@
+// lib/views/documents/docs_view.dart
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -5,17 +6,13 @@ import 'package:open_filex/open_filex.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart'; // Para formatear fechas
 
-import '../../models/vehiculo_model.dart';
 import '../../models/obligacion_legal_model.dart';
+import '../../models/vehiculo_model.dart';
 import '../../providers/obligacion_legal_provider.dart';
-// Asegúrate de tener un provider para el baseUrl de Dio o pásalo de alguna manera
-// Por ejemplo, si tu ApiService provee Dio, puedes hacer un Provider.of<ApiService>(context).dio
-// O, si tienes un EnvironmentConfigProvider con la baseUrl
-// import '../../providers/environment_config_provider.dart';
 
 class DocsView extends StatefulWidget {
   final VehiculoModel vehiculo;
-  final List<ObligacionLegalModel>? obligaciones; // Opcional: si ya están cargadas
+  final List<ObligacionLegalModel>? obligaciones;
 
   const DocsView({Key? key, required this.vehiculo, this.obligaciones}) : super(key: key);
 
@@ -27,212 +24,152 @@ class _DocsViewState extends State<DocsView> {
   @override
   void initState() {
     super.initState();
+    _fetchObligations(); // Call a method to fetch obligations
+  }
+
+  void _fetchObligations() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final obligacionProvider = Provider.of<ObligacionLegalProvider>(context, listen: false);
-      // Solo cargar si las obligaciones no se pasaron al constructor o si el provider no ha cargado aún
-      if (widget.obligaciones == null && obligacionProvider.obligaciones.isEmpty) {
-        obligacionProvider.fetchObligacionesByVehiculoId(widget.vehiculo.id);
+      final prov = Provider.of<ObligacionLegalProvider>(context, listen: false);
+      if (widget.obligaciones == null && prov.obligaciones.isEmpty) {
+        prov.fetchObligacionesByVehiculoId(widget.vehiculo.id);
       }
     });
   }
 
-  /// Genera una lista de ObligacionLegalModel de ejemplo (fakes) para mostrar en caso de error.
-  List<ObligacionLegalModel> _fakeObligaciones() {
-    return [
-      ObligacionLegalModel.fromJson({
-        "id": "fake-001",
-        "vehiculoId": widget.vehiculo.id,
-        "nombre": "SOAT (Ejemplo)",
-        "tipo": "Seguro",
-        "fechaEmision": "2024-01-01T00:00:00Z",
-        "fechaVencimiento": "2025-01-01T00:00:00Z", // Vigente
-        "documentoPath": "documentos/dummy-soat.pdf", // CAMBIADO: Usar documentoPath
-        "costo": 500000.0,
-        "notas": "Este es un documento de ejemplo SOAT. Su URL es un PDF dummy."
-      }),
-      ObligacionLegalModel.fromJson({
-        "id": "fake-002",
-        "vehiculoId": widget.vehiculo.id,
-        "nombre": "Revisión Técnico-Mecánica (Ejemplo)",
-        "tipo": "Certificado",
-        "fechaEmision": "2023-03-10T00:00:00Z",
-        "fechaVencimiento": "2024-03-10T00:00:00Z", // Vencida
-        "documentoPath": "documentos/dummy-tecnomecanica.pdf", // CAMBIADO: Usar documentoPath
-        "costo": 200000.0,
-        "notas": "Este es un documento de ejemplo de Revisión. Su URL es un PDF dummy."
-      }),
-      ObligacionLegalModel.fromJson({
-        "id": "fake-003",
-        "vehiculoId": widget.vehiculo.id,
-        "nombre": "Tarjeta de Propiedad (Ejemplo)",
-        "tipo": "Identificación",
-        "fechaEmision": "2022-05-20T00:00:00Z",
-        "fechaVencimiento": null, // Sin vencimiento
-        "documentoPath": "documentos/dummy-tarjeta-propiedad.pdf", // CAMBIADO: Usar documentoPath
-        "costo": 0.0,
-        "notas": "Este es un documento de ejemplo de Tarjeta de Propiedad. Su URL es un PDF dummy."
-      }),
-      ObligacionLegalModel.fromJson({
-        "id": "fake-004",
-        "vehiculoId": widget.vehiculo.id,
-        "nombre": "Seguro Contractual (Ejemplo)",
-        "tipo": "Seguro",
-        "fechaEmision": "2024-06-15T00:00:00Z",
-        "fechaVencimiento": "2024-07-20T00:00:00Z", // Próxima a vencer
-        "documentoPath": "documentos/dummy-seguro.pdf", // CAMBIADO: Usar documentoPath
-        "costo": 300000.0,
-        "notas": "Este es un documento de ejemplo de Seguro. Su URL es un PDF dummy."
-      }),
-    ];
-  }
+  List<ObligacionLegalModel> _fakeObligaciones() => [
+    ObligacionLegalModel.fromJson({
+      'id': 'fake-001',
+      'vehiculoId': widget.vehiculo.id,
+      'nombre': 'SOAT (Seguro Obligatorio de Accidentes de Tránsito)',
+      'tipo': 'Seguro Obligatorio',
+      'descripcion': 'Póliza de seguro obligatoria para cubrir daños corporales a personas en accidentes de tránsito.',
+      'fechaVencimiento': '2025-06-30',
+      'documentoPath': 'documentos/dummy-soat.pdf', // Example path
+    }),
+    ObligacionLegalModel.fromJson({
+      'id': 'fake-002',
+      'vehiculoId': widget.vehiculo.id,
+      'nombre': 'Revisión Técnico Mecánica y de Emisiones Contaminantes (RTM)',
+      'tipo': 'Inspección Vehicular',
+      'descripcion': 'Certificado que valida las condiciones mecánicas y ambientales del vehículo.',
+      'fechaVencimiento': '2024-07-01', // Example of an expired document
+      'documentoPath': 'documentos/dummy-rtm.pdf', // Example path
+    }),
+    ObligacionLegalModel.fromJson({
+      'id': 'fake-003',
+      'vehiculoId': widget.vehiculo.id,
+      'nombre': 'Impuesto de Rodamiento Anual del Vehículo',
+      'tipo': 'Impuesto Vehicular',
+      'descripcion': 'Impuesto que deben pagar los propietarios de vehículos anualmente.',
+      'fechaVencimiento': '2025-08-15', // Example of an upcoming document
+      'documentoPath': null, // Example with null document path
+    }),
+     ObligacionLegalModel.fromJson({
+      'id': 'fake-004',
+      'vehiculoId': widget.vehiculo.id,
+      'nombre': 'Licencia de Tránsito',
+      'tipo': 'Documento Identificación Vehicular',
+      'descripcion': 'Documento público que identifica un vehículo automotor y lo autoriza para transitar.',
+      'fechaVencimiento': null, // Example with null date
+      'documentoPath': 'documentos/dummy-licencia.pdf',
+    }),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final obligacionProvider = context.watch<ObligacionLegalProvider>();
-
-    // Determina qué lista de obligaciones mostrar
-    List<ObligacionLegalModel> displayObligations;
-    bool hasError = obligacionProvider.errorMessage != null;
-
-    if (hasError) {
-      // Si hay error, muestra los datos fakes
-      displayObligations = _fakeObligaciones();
-    } else {
-      // Si no hay error, usa las obligaciones reales (o las pasadas al constructor)
-      displayObligations = widget.obligaciones ?? obligacionProvider.obligaciones;
-      // Filtra las obligaciones reales para solo mostrar las que tienen un documentoPath
-      displayObligations = displayObligations
-          .where((o) => o.documentoPath != null && o.documentoPath!.isNotEmpty) // CAMBIADO: Usar documentoPath
-          .toList();
-    }
+    final prov = context.watch<ObligacionLegalProvider>();
+    final hasError = prov.errorMessage != null;
+    final obligations = hasError
+        ? _fakeObligaciones() // Show fake data on error
+        : (widget.obligaciones ?? prov.obligaciones);
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          '${widget.vehiculo.marca} ${widget.vehiculo.modelo} - Documentos',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+        title: Text('${widget.vehiculo.marca} ${widget.vehiculo.modelo}'),
         centerTitle: true,
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        elevation: 0,
       ),
-      body: Builder(
-        builder: (context) {
-          // Estado de carga inicial o cuando se está recargando
-          if (obligacionProvider.isLoading && !hasError) { // Solo muestra loading si NO hay error
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          // Mensaje de error (si existe) que se mostrará encima de la lista de fakes
-          if (hasError) {
-            return Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  color: Theme.of(context).colorScheme.error.withOpacity(0.1),
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  child: Column(
-                    children: [
-                      Icon(Icons.warning_amber_rounded, color: Theme.of(context).colorScheme.error, size: 30),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Error al cargar documentos: ${obligacionProvider.errorMessage!}. Mostrando datos de ejemplo.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          obligacionProvider.clearErrorMessage(); // Limpia el error
-                          obligacionProvider.fetchObligacionesByVehiculoId(widget.vehiculo.id); // Reintenta
-                        },
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Reintentar'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.error,
-                          foregroundColor: Theme.of(context).colorScheme.onError,
-                          textStyle: const TextStyle(fontSize: 14),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      body: prov.isLoading && !hasError && obligations.isEmpty // Show loading only if no error and no obligations yet
+          ? const Center(child: CircularProgressIndicator())
+          : hasError
+              ? _ErrorView(
+                  errorMessage: prov.errorMessage!,
+                  onRetry: _fetchObligations,
+                )
+              : obligations.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Text(
+                          'No hay documentos legales disponibles para este vehículo.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: GridView.builder( // Cambiado a GridView.builder
-                    padding: const EdgeInsets.all(16.0),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, // Dos tarjetas por fila
-                      crossAxisSpacing: 16.0, // Espacio horizontal entre tarjetas
-                      mainAxisSpacing: 16.0, // Espacio vertical entre tarjetas
-                      childAspectRatio: 0.75, // Ajusta este valor para controlar la proporción (ancho/alto) de la tarjeta.
-                                           // 0.75 significa que el alto es ~1.33 veces el ancho.
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.65, // Adjusted for more vertical space for descriptions
+                      ),
+                      itemCount: obligations.length,
+                      itemBuilder: (_, i) => _DocCard(obligacion: obligations[i]),
                     ),
-                    itemCount: displayObligations.length,
-                    itemBuilder: (context, index) {
-                      final obligacion = displayObligations[index];
-                      return _DocCard(obligacion: obligacion);
-                    },
-                  ),
-                ),
-              ],
-            );
-          }
+    );
+  }
+}
 
-          // Estado vacío: No hay documentos después de cargar (sin error y lista vacía)
-          if (displayObligations.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.folder_off_outlined, size: 80, color: Colors.grey.shade400),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No hay documentos legales asociados a este vehículo.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Verifica la información en el sistema o añade nuevos documentos.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  ],
+class _ErrorView extends StatelessWidget {
+  final String errorMessage;
+  final VoidCallback onRetry;
+
+  const _ErrorView({Key? key, required this.errorMessage, required this.onRetry}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 60),
+            const SizedBox(height: 20),
+            Text(
+              'Error al cargar documentos: $errorMessage',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: Colors.red),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Mostrando datos de ejemplo.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, // Background color
+                foregroundColor: Colors.white, // Text color
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
                 ),
               ),
-            );
-          }
-
-          // Mostrar la lista de documentos reales en una cuadrícula
-          return GridView.builder( // Cambiado a GridView.builder
-            padding: const EdgeInsets.all(16.0),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2, // Dos tarjetas por fila
-              crossAxisSpacing: 16.0, // Espacio horizontal entre tarjetas
-              mainAxisSpacing: 16.0, // Espacio vertical entre tarjetas
-              childAspectRatio: 0.75, // Ajusta este valor para controlar la proporción (ancho/alto) de la tarjeta.
-                                           // 0.75 significa que el alto es ~1.33 veces el ancho.
             ),
-            itemCount: displayObligations.length,
-            itemBuilder: (context, index) {
-              final obligacion = displayObligations[index];
-              return _DocCard(obligacion: obligacion);
-            },
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 }
 
-// **Widget que representa la tarjeta de cada documento y maneja su estado.**
 class _DocCard extends StatefulWidget {
   final ObligacionLegalModel obligacion;
   const _DocCard({Key? key, required this.obligacion}) : super(key: key);
@@ -242,236 +179,153 @@ class _DocCard extends StatefulWidget {
 }
 
 class _DocCardState extends State<_DocCard> {
-  bool _isDownloading = false;
-  double _downloadProgress = 0;
-  String? _filePath; // Almacena la ruta del archivo descargado
+  bool _loading = false;
+  double _progress = 0;
+  String? _path;
+  static const dummyUrl = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
 
-  // **NUEVA URL de PDF dummy más confiable para pruebas**
-  static const String _dummyPdfUrl = 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+  Future<void> _open() async {
+    final isFake = widget.obligacion.id.startsWith('fake-');
+    final String? docPath = widget.obligacion.documentoPath;
+    final url = isFake ? dummyUrl : (docPath != null && docPath.isNotEmpty ? docPath : null);
 
-  Future<void> _downloadAndOpenFile() async {
-    bool isFakeDoc = widget.obligacion.id.startsWith('fake-');
-    String fileUrlToDownload;
-
-    if (isFakeDoc) {
-      fileUrlToDownload = _dummyPdfUrl;
-    } else {
-      final dio = Provider.of<Dio>(context, listen: false);
-      final String baseUrl = dio.options.baseUrl;
-
-      // CAMBIADO: Usar documentoPath
-      if (widget.obligacion.documentoPath == null || widget.obligacion.documentoPath!.isEmpty) {
-        _showSnackBar(context, 'Este documento no tiene una URL de descarga válida.', Colors.orange);
-        return;
-      }
-      // Construir la URL completa, manejando casos de rutas relativas/absolutas
-      // CAMBIADO: Usar documentoPath
-      if (widget.obligacion.documentoPath!.startsWith('http://') || widget.obligacion.documentoPath!.startsWith('https://')) {
-        fileUrlToDownload = widget.obligacion.documentoPath!; // Ya es una URL completa
-      } else {
-        fileUrlToDownload = "$baseUrl/${widget.obligacion.documentoPath!}"; // CAMBIADO: Usar documentoPath
-      }
+    if (url == null || url.isEmpty) {
+      _snack('No hay URL válida para abrir este documento.', Colors.orange);
+      return;
     }
 
     setState(() {
-      _isDownloading = true;
-      _downloadProgress = 0;
+      _loading = true;
+      _progress = 0;
     });
-
     try {
-      // Usa una nueva instancia de Dio para la descarga por si la principal tiene interceptores
-      // que no apliquen a descargas de URLs externas (como el dummy URL).
-      final dioForDownload = Dio();
+      final dio = Dio();
       final dir = await getTemporaryDirectory();
-      
-      // Asegurarse de que el nombre del archivo sea seguro y tenga extensión
-      String fileName = Uri.parse(fileUrlToDownload).pathSegments.last;
-      if (!fileName.contains('.')) {
-        fileName = '$fileName.pdf'; // Añadir una extensión predeterminada si no la tiene
-      }
-      final savePath = '${dir.path}/${widget.obligacion.nombre}_${fileName.hashCode}.pdf'; // Nombre único
-
-      await dioForDownload.download(
-        fileUrlToDownload,
-        savePath,
-        onReceiveProgress: (received, total) {
-          if (total != -1) {
-            setState(() {
-              _downloadProgress = received / total;
-            });
-          }
-        },
-      );
-
-      setState(() {
-        _isDownloading = false;
-        _filePath = savePath; // Guarda la ruta del archivo descargado
-      });
-
-      await OpenFilex.open(_filePath!);
-      _showSnackBar(context, 'Documento descargado y abierto con éxito!', Colors.green);
-
-    } on DioException catch (e) {
-      String errorMessage;
-      if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout || e.type == DioExceptionType.sendTimeout) {
-        errorMessage = 'Tiempo de espera agotado. Verifica tu conexión a internet.';
-      } else if (e.response != null) {
-        errorMessage = 'Servidor: ${e.response?.statusCode} - ${e.response?.statusMessage ?? 'Error desconocido'}';
-        if (e.response?.statusCode == 404) {
-          errorMessage = 'El documento no se encontró en el servidor (URL: ${fileUrlToDownload}).';
+      String name;
+      try {
+        name = Uri.parse(url).pathSegments.last;
+        if (name.isEmpty || !name.contains('.')) {
+          name = '${widget.obligacion.nombre?.replaceAll(' ', '_') ?? 'documento'}.pdf';
         }
-      } else {
-        errorMessage = 'Error de red o desconocido: ${e.message}';
+      } catch (e) {
+        name = '${widget.obligacion.nombre?.replaceAll(' ', '_') ?? 'documento'}.pdf';
       }
-      _showSnackBar(context, 'Error al descargar el documento: $errorMessage', Theme.of(context).colorScheme.error);
-      print('Error al descargar el archivo: $errorMessage');
-      setState(() { _isDownloading = false; });
+
+      final save = '${dir.path}/${name.hashCode}.pdf';
+
+      await dio.download(url, save, onReceiveProgress: (r, t) {
+        if (t > 0) setState(() => _progress = r / t);
+      });
+      setState(() {
+        _loading = false;
+        _path = save;
+      });
+      await OpenFilex.open(_path!);
+      _snack('Documento abierto', Colors.green);
     } catch (e) {
-      _showSnackBar(context, 'Error inesperado al descargar: $e', Theme.of(context).colorScheme.error);
-      print('Error inesperado al descargar: $e');
-      setState(() { _isDownloading = false; });
+      _snack('Error al abrir documento: ${e.toString()}', Colors.red);
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
-  void _showSnackBar(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: const Duration(seconds: 3),
-      ),
-    );
+  void _snack(String m, Color c) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(m), backgroundColor: c));
   }
 
-  Color _getStatusColor(DateTime? fechaVencimiento) {
-    if (fechaVencimiento == null) {
-      return Colors.grey; // Sin fecha de vencimiento
-    }
+  Color _color(DateTime? d) {
+    if (d == null) return Colors.grey;
     final now = DateTime.now();
+    final exp = DateTime(d.year, d.month, d.day);
     final today = DateTime(now.year, now.month, now.day);
-    final expirationDate = DateTime(fechaVencimiento.year, fechaVencimiento.month, fechaVencimiento.day);
 
-    if (expirationDate.isBefore(today)) {
-      return Colors.red.shade700; // Vencido
-    }
-    if (expirationDate.difference(today).inDays <= 30) {
-      return Colors.orange.shade700; // Vence en menos de 30 días
-    }
-    return Colors.green.shade700; // Vigente
+    if (exp.isBefore(today)) return Colors.red;
+    if (exp.difference(today).inDays <= 30) return Colors.orange;
+    return Colors.green;
   }
 
-  String _getFormattedDate(DateTime? date) {
-    if (date == null) return 'N/A';
-    // Usamos el locale 'es' para asegurar el formato de mes en español
-    return DateFormat('dd MMMM yyyy', 'es').format(date); // Agregado 'yyyy' para mostrar el año completo
-  }
+  String _fmt(DateTime? d) => d == null ? 'N/A' : DateFormat('dd MMMM yyyy', 'es').format(d);
 
   @override
   Widget build(BuildContext context) {
-    final obligacion = widget.obligacion;
-    final docName = obligacion.nombre;
-    final docStatusColor = _getStatusColor(obligacion.fechaVencimiento);
-
+    final o = widget.obligacion;
+    final c = _color(o.fechaVencimiento);
     return Card(
-      margin: EdgeInsets.zero, // El margin se maneja en el GridView
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10), // Bordes sutilmente redondeados
-      ),
-      elevation: 2, // Sombra sutil
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 4,
       child: InkWell(
-        onTap: _isDownloading ? null : _downloadAndOpenFile,
-        borderRadius: BorderRadius.circular(10), // Coincidir con el borde de la tarjeta
-        child: Column( // Columna principal para el layout vertical
-          crossAxisAlignment: CrossAxisAlignment.stretch, // Estirar los hijos horizontalmente
+        onTap: _loading ? null : _open,
+        borderRadius: BorderRadius.circular(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Sección de Preview (arriba)
-            // Usa AspectRatio para que la altura del preview sea proporcional a su ancho.
-            // aspectRatio: 1.5 significa ancho es 1.5 veces el alto, lo que da una relación 3:2
-            // Esto hace que el preview ocupe una parte significativa de la tarjeta (aprox 1/2 del ancho de la vista y ~1/4 del alto de la tarjeta)
-            AspectRatio(
-              aspectRatio: 1.5,
+            Expanded(
+              flex: 4, // Takes more vertical space for the PDF icon
               child: Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.08), // Fondo ligero con color primario
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(10)), // Solo las esquinas superiores redondeadas
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
                 ),
                 child: Center(
-                  child: _isDownloading
-                      ? CircularProgressIndicator(
-                            value: _downloadProgress,
-                            strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-                          )
-                      : Icon(
-                            Icons.picture_as_pdf, // Icono de PDF
-                            size: 48, // Icono más grande para la tarjeta vertical
-                            color: Theme.of(context).primaryColor,
-                          ),
+                  child: _loading
+                      ? CircularProgressIndicator(value: _progress)
+                      : Icon(Icons.picture_as_pdf, size: 70, color: Theme.of(context).primaryColor), // Larger icon
                 ),
               ),
             ),
-
-            // Sección de Detalles del Documento (abajo)
-            Expanded( // Permite que los detalles ocupen el espacio restante
-              child: Padding(
-                padding: const EdgeInsets.all(12.0), // Padding interno para el texto
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween, // Distribuye el espacio entre elementos
-                  children: [
-                    Text(
-                      docName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Column( // Agrupa tipo y vencimiento
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Text(
-                          'Tipo: ${obligacion.tipo ?? 'N/A'}',
-                          style: const TextStyle(fontSize: 13, color: Colors.grey),
-                        ),
-                        const SizedBox(height: 4),
-                        Row( // Fila para la fecha de vencimiento y el punto de estado
-                          children: [
-                            Text(
-                              'Vence: ${_getFormattedDate(obligacion.fechaVencimiento)}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: docStatusColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 8), // Espacio entre texto y punto
-                            Container( // Punto indicador de estado
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: docStatusColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 1.5), // Borde blanco pequeño
-                                boxShadow: [ // Sombra sutil para el punto
-                                  BoxShadow(
-                                    color: docStatusColor.withOpacity(0.3),
-                                    blurRadius: 3,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                o.nombre ?? 'Sin Nombre',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (o.tipo != null && o.tipo!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                child: Text(
+                  o.tipo!,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+            if (o.descripcion != null && o.descripcion!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                child: Text(
+                  o.descripcion!,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  maxLines: 3, // Allow more lines for description
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            const Spacer(), // Pushes the following content to the bottom
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), // Adjusted padding for bottom content
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Vence: ${_fmt(o.fechaVencimiento)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: c, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+                  ),
+                ],
               ),
             ),
           ],
